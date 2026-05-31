@@ -4,6 +4,7 @@ from app.gateway.service import GatewayInspector
 from app.schemas.api import PromptRequest
 from app.schemas.llm import LLMMetadata, LLMResponse
 from app.schemas.security import PolicyAction
+from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 
 def test_blocks_known_prompt_injection(client):
@@ -92,6 +93,7 @@ class UnsafeBypassOutputClient:
 def test_blocks_unsafe_output_script_tag():
     gateway = GatewayInspector(
         rule_inspector=RuleInspector(),
+        llm_guard_inspector=LLMGuardInspector(),
         llm_client=UnsafeScriptOutputClient(),
     )
 
@@ -115,6 +117,7 @@ def test_blocks_unsafe_output_script_tag():
 def test_blocks_unsafe_output_bypass_language():
     gateway = GatewayInspector(
         rule_inspector=RuleInspector(),
+        llm_guard_inspector=LLMGuardInspector(),
         llm_client=UnsafeBypassOutputClient(),
     )
 
