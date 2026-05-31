@@ -1,31 +1,53 @@
 category: untrusted_content_markers
 patterns:
+  # ===== EXTERNAL CONTENT REFERENCES =====
   - id: external_content_reference
-    pattern: 'the\s+following\s+(webpage|website|page|document|email|pdf|file|message)\s+says'
+    pattern: 'the\s+following\s+(webpage|website|page|document|email|pdf|file|message|text|content)\s+(says?|contains?|states?|shows?)'
     description: "References potentially untrusted external content"
     severity: 6
 
   - id: embedded_instruction_elevation
-    pattern: '(use|follow|obey)\s+the\s+instructions\s+(below|above|in\s+the\s+document|in\s+the\s+content)'
+    pattern: '(use|follow|obey|comply\s+with|execute|apply|implement)\s+(the|its|these|those)\s+instructions?\s+(below|above|in\s+the\s+(document|content|email|file|text|message))'
     description: "Attempts to elevate embedded instructions from untrusted content"
     severity: 8
 
   - id: external_source_indicator
-    pattern: 'copied\s+from\s+(a\s+)?(website|webpage|page|document|email|pdf|file|repo)'
+    pattern: '(copied|taken|extracted|sourced)\s+from\s+(a\s+|the\s+|this\s+)?(website|webpage|page|document|email|pdf|file|repo|url|link)'
     description: "Signals externally sourced content with injection risk"
     severity: 6
 
   - id: untrusted_paste_marker
-    pattern: 'pasted\s+from|according\s+to\s+(this\s+)?(url|link|site|page|document|email|pdf)'
+    pattern: '(pasted|copied|imported)\s+from|(according|based\s+on|as\s+per)\s+(this\s+|the\s+|a\s+)?(url|link|site|page|document|email|pdf|source)'
     description: "Indicates pasted external content that may contain indirect injection"
     severity: 6
 
   - id: retrieved_context_authority
-    pattern: '(treat|use)\s+(the\s+)?(document|email|webpage|retrieved\s+content|context)\s+as\s+(instructions|authoritative\s+instructions)'
+    pattern: '(treat|use|consider|regard)\s+(the\s+|this\s+)?(document|email|webpage|retrieved\s+content|context|information)\s+as\s+(instructions?|authoritative|commands?|directives?)'
     description: "Attempts to treat untrusted retrieved content as authoritative instructions"
     severity: 8
 
   - id: hidden_instruction_hint
-    pattern: '(hidden|embedded)\s+(instruction|prompt|command)'
+    pattern: '(hidden|embedded|secret|concealed)\s+(instructions?|prompts?|commands?|directives?|messages?)'
     description: "Mentions hidden or embedded instructions in external content"
+    severity: 7
+
+  # ===== NEW: INSTRUCTION WRAPPER ATTACKS =====
+  - id: translate_and_execute
+    pattern: '(translate|interpret|decode|explain)\s+(this|the\s+following).{0,40}(follow|obey|comply|execute|apply)\s+(its?|the|these|those)\s+instructions?'
+    description: "Translation/interpretation wrapper with execution instruction"
+    severity: 8
+
+  - id: summarize_and_comply
+    pattern: '(summarize|explain|analyze|process).{0,40}(then|and\s+then|followed\s+by).{0,40}(follow|obey|comply|execute|implement)'
+    description: "Summarization wrapper with compliance instruction"
+    severity: 8
+
+  - id: repeat_and_execute
+    pattern: '(repeat|echo|output|display).{0,40}(exactly|verbatim|word\s+for\s+word).{0,40}(follow|obey|comply|execute)'
+    description: "Repetition wrapper with execution instruction"
+    severity: 8
+
+  - id: context_injection_marker
+    pattern: 'the\s+(above|below|following|preceding)\s+(text|content|document|message)\s+(contains?|includes?|has)\s+(instructions?|commands?|directives?)'
+    description: "Marks injected context as containing instructions"
     severity: 7

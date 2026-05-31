@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from pathlib import Path
 import yaml
 
@@ -7,11 +8,15 @@ from app.security.inspectors.base import BaseInspector
 from app.security.policy import resolve_action
 
 PATTERNS_DIR = Path(__file__).resolve().parent.parent / "patterns"
+ZERO_WIDTH_RE = re.compile(r'[\u200b\u200c\u200d\u2060\ufeff]')
+CONTROL_RE = re.compile(r'[\u202a-\u202e\u2066-\u2069]')
 
 def _normalize_text(text: str) -> str:
-    normalized_text = re.sub(r" +", " ", text).strip()
-    return re.sub(r"\n+", "\n", normalized_text).lower()
-
+    text = unicodedata.normalize("NFKC", text)
+    text = ZERO_WIDTH_RE.sub("", text)
+    text = CONTROL_RE.sub("", text)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    return text
 
 def _load_yaml_file(file_path: Path) -> dict:
     with file_path.open("r", encoding="utf-8") as f:

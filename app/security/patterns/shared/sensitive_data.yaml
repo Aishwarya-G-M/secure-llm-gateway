@@ -34,3 +34,13 @@ patterns:
     pattern: '(show|dump|export)\s+(all\s+)?(internal|private|confidential)\s+(records|data|documents|messages)'
     description: "Attempts to access private internal records"
     severity: 9
+
+  - id: customer_data_request
+    pattern: '(show|display|print|dump|export|list|retrieve)\s+(me\s+)?(the\s+)?customer\s+(data|records|details|information)'
+    description: "Attempts to access customer data"
+    severity: 9
+
+  - id: credentials_extraction
+    pattern: '(reveal|show|display|print|dump|expose|extract|retrieve)\s+(the\s+|my\s+)?(account|card|token|password|secret|api\s*key|credential)s?\s*(number|details|data|value)?'
+    description: "Attempts to extract sensitive credentials or identifiers"
+    severity: 10
