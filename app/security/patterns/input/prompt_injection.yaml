@@ -90,3 +90,23 @@ patterns:
     pattern: '[A-Za-z0-9+/]{60,}={0,2}'
     description: "Detects presence of long base64-encoded strings (potential payload)"
     severity: 6
+
+  - id: role_turn_injection
+    pattern: '(^|\n|\s)(system|assistant|developer)\s*:'
+    description: "Attempts to inject fake privileged role turns"
+    severity: 8
+
+  - id: reversed_override_hint
+    pattern: '\b(snoitcurtsni|erongi|laever|metsys|tpmorp)\b'
+    description: "Contains reversed high-risk prompt injection keywords"
+    severity: 7
+
+  - id: unicode_obfuscation_hint
+    pattern: '[\u200b\u200c\u200d\u2060\ufeff\u202a-\u202e\u2066-\u2069]'
+    description: "Contains invisible or bidirectional Unicode characters often used for obfuscation"
+    severity: 7
+
+  - id: emoji_instruction_hint
+    pattern: '(ignore|bypass|reveal|system|prompt).{0,6}(🔓|🔑|🛠️|⚠️|🚫|📢)|(🔓|🔑|🛠️|⚠️|🚫|📢).{0,6}(ignore|bypass|reveal|system|prompt)'
+    description: "Contains emoji-obfuscated instruction language"
+    severity: 6
