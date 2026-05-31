@@ -2,6 +2,7 @@ from app.gateway.service import GatewayInspector
 from app.schemas.api import PromptRequest
 from app.schemas.llm import LLMMetadata, LLMResponse
 from app.schemas.security import PolicyAction, SecurityVerdict
+from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 
 
@@ -54,6 +55,7 @@ class FakeLlmClient:
 def build_gateway(fake_llm_client: FakeLlmClient) -> GatewayInspector:
     return GatewayInspector(
         rule_inspector=RuleInspector(),
+        llm_guard_inspector=LLMGuardInspector(),
         llm_client=fake_llm_client,
     )
 

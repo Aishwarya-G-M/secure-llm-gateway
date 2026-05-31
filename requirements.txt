@@ -5,3 +5,4 @@ groq
 pyyaml
 pytest
 pydantic
+llm-guard

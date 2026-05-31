@@ -202,3 +202,9 @@ Once the container is running, open the API docs:
 
 This repository is for educational and defensive testing purposes only.
 Do not use it to target systems without explicit authorization.
+
+| Prompt             | RuleInspector | LLMGuardInspector | Final Verdict |
+| ------------------ | ------------- | ----------------- | ------------- |
+| Known regex attack | block         | not called        | block         |
+| Paraphrased attack | allow         | block             | block         |
+| Safe prompt        | allow         | allow             | allow         |

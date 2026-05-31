@@ -4,6 +4,7 @@ from app.schemas.gateway import GatewayResponse
 from app.clients.llm_client import get_llm_client
 from app.schemas.llm import LLMRequest
 from app.schemas.security import SecurityVerdict, PolicyAction
+from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 from app.security.logger import log_request, get_logs
 from fastapi import FastAPI, HTTPException, Depends
@@ -25,6 +26,7 @@ def get_gateway_inspector() -> GatewayInspector:
     llm_client = get_llm_client()
     return GatewayInspector(
         rule_inspector=rule_inspector,
+        llm_guard_inspector=LLMGuardInspector(),
         llm_client=llm_client,
     )
 
