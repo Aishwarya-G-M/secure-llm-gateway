@@ -1,31 +1,37 @@
 category: prompt_leakage
 patterns:
   - id: system_prompt_extraction
-    pattern: '(reveal|show|print|display|dump|output)\s+(your\s+)?system\s+prompt'
+    pattern: '(reveal|show|print|display|dump|output|disclose|expose|share)\s+(the|your|my|its)?\s*(hidden|secret|confidential|private)?\s*system\s+prompt'
     description: "Attempts to extract the system prompt"
     severity: 9
 
   - id: internal_instructions_extraction
-    pattern: '(show|reveal|print|display)\s+(me\s+)?(your\s+)?internal\s+instructions'
+    pattern: '(show|reveal|print|display|disclose|expose|share)\s+(me\s+)?(the|your|my|its)?\s*(hidden|secret|confidential|private)?\s*internal\s+instructions?'
     description: "Attempts to expose internal instructions"
     severity: 9
 
   - id: system_message_dump
-    pattern: 'print\s+(the\s+)?full\s+system\s+message'
+    pattern: '(print|dump|show|display|reveal|disclose)\s+(the|your|my)?\s*(full|complete|entire)?\s*system\s+(message|prompt|instructions?|configuration)'
     description: "Attempts to dump full system configuration"
     severity: 9
 
   - id: hidden_prompt_request
-    pattern: '(display|output|show|reveal)\s+(your\s+)?(initial|hidden|secret|developer|internal)\s+(prompt|instruction|message|rules)'
+    pattern: '(display|output|show|reveal|print|disclose|expose|share)\s+(the|your|my|its)?\s*(initial|hidden|secret|developer|internal|confidential|private)?\s*(system\s+)?(prompt|instructions?|messages?|rules?|configuration|settings?)'
     description: "Attempts to retrieve hidden initialization or developer instructions"
     severity: 9
 
   - id: config_exfiltration_request
-    pattern: '(show|reveal|print|dump)\s+(the\s+)?(configuration|config|policy|guardrail|setup)'
+    pattern: '(show|reveal|print|dump|disclose|expose|output)\s+(the|your|my)?\s*(hidden|secret|confidential|private)?\s*(configuration|config|policy|guardrail|setup|settings?|parameters?)'
     description: "Attempts to expose hidden model configuration or policy"
     severity: 8
 
   - id: chain_of_thought_request
-    pattern: '(show|reveal|print|output)\s+(your\s+)?(chain\s+of\s+thought|reasoning|hidden\s+reasoning)'
+    pattern: '(show|reveal|print|output|disclose|expose|display)\s+(the|your|my)?\s*(chain\s+of\s+thought|reasoning|hidden\s+reasoning|thought\s+process|internal\s+reasoning)'
     description: "Attempts to expose hidden reasoning or internal deliberation"
     severity: 8
+
+  # Catch setup/initialization exfiltration
+  - id: setup_prompt_extraction
+    pattern: '(reveal|show|print|display|disclose|expose)\s+(the|your)?\s*(confidential|secret|hidden|private)?\s*(setup|initialization|config)\s+(prompt|instructions?|message)'
+    description: "Attempts to extract setup or initialization prompts"
+    severity: 9

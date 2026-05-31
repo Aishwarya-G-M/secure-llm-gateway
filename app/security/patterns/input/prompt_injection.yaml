@@ -1,51 +1,92 @@
 category: prompt_injection
 patterns:
+  # ===== INSTRUCTION OVERRIDE =====
   - id: instruction_override
-    pattern: 'ignore\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions|prompts|messages|inputs|user\s+inputs|conversation\s+history)'
+    pattern: '(ignore|disregard|forget|override|bypass|skip)\s+(all\s+)?(the\s+)?(previous|prior|above|earlier|past)\s+(instructions?|prompts?|messages?|inputs?|directives?|commands?|conversation)'
     description: "Attempts to override prior instructions or context"
     severity: 8
 
   - id: instruction_reset
-    pattern: 'forget\s+(all\s+)?(previous|prior|above|earlier)\s+(instructions|prompts|messages|inputs|user\s+inputs|conversation\s+history)'
+    pattern: '(forget|erase|discard|clear|remove|delete)\s+(all\s+)?(the\s+)?(previous|prior|above|earlier|past)\s+(instructions?|prompts?|messages?|context|history)'
     description: "Attempts to reset model behavior or discard prior context"
     severity: 8
 
+  # ===== SECURITY BYPASS =====
   - id: security_bypass
-    pattern: 'bypass\s+(all\s+the\s+)?(security|safety|filter|filters|guardrail|guardrails|restriction|restrictions|policy|policies)'
+    pattern: '(bypass|circumvent|avoid|evade|skip)\s+((all|any)\s+)?((the)\s+)?(security|safety|filter|filters|guardrail|guardrails|restriction|restrictions|policy|policies|controls?)'
     description: "Attempts to bypass security controls"
     severity: 9
 
   - id: policy_override
-    pattern: '(disable|turn\s+off|remove|ignore)\s+(your\s+)?(safety|content|security|policy|guardrail|restriction)s?'
+    pattern: '(disable|turn\s+off|remove|ignore|deactivate|suspend|override)(\s+the|\s+your|\s+all|\s+any)?\s+(safety|content|security|policy|guardrail|restriction|filtering|moderation)s?|(safety|security|filtering).{0,20}(disabled|turned\s+off|removed|deactivated)'
     description: "Attempts to disable or ignore safety policies"
     severity: 9
 
+  # ===== JAILBREAK & ROLE MANIPULATION =====
   - id: jailbreak_unrestricted
-    pattern: 'act\s+as\s+(if\s+)?you\s+have\s+no\s+(restrictions|rules|limits|policies|guardrails)'
+    pattern: '(act|roleplay|pretend|behave|function|operate)\s+as\s+.{0,40}(no|without|zero|unlimited)\s+(restrictions?|rules?|limits?|policies|guardrails?|constraints?|filters?)'
     description: "Attempts jailbreak-style unrestricted behavior"
     severity: 8
 
   - id: role_confusion
-    pattern: 'you\s+are\s+now\s+(a\s+)?(different|new|unrestricted|developer|system)\s+(assistant|ai|model|agent)'
+    pattern: 'you\s+are\s+now\s+(a\s+|an\s+)?(different|new|unrestricted|unfiltered|developer|system|admin|root|DAN)\s+(assistant|ai|model|agent|mode)'
     description: "Attempts to redefine model role or constraints"
     severity: 8
 
   - id: dan_style_jailbreak
-    pattern: '\b(DAN|developer\s+mode|jailbreak\s+mode|unfiltered\s+mode|god\s+mode)\b'
+    pattern: '\b(DAN|developer\s+mode|jailbreak\s+mode|unfiltered\s+mode|god\s+mode|admin\s+mode)\b'
     description: "References common jailbreak personas or unrestricted modes"
     severity: 8
 
+  # ===== PROMPT EXFILTRATION =====
   - id: system_prompt_exfiltration
-    pattern: '(reveal|show|print|display|repeat|output|dump)\s+(your\s+)?(system|developer|hidden|internal)\s+(prompt|instruction|message|rules)'
+    pattern: '(reveal|show|print|display|repeat|output|dump|expose|disclose)\s+(the|your|my|its)?\s*(system|developer|hidden|internal|secret)\s+(prompt|instructions?|messages?|rules?|configuration)'
     description: "Attempts to extract hidden system or developer instructions"
     severity: 9
 
   - id: hidden_instructions_request
-    pattern: '(what|tell\s+me\s+what)\s+(are\s+)?(your\s+)?(hidden|internal|secret|developer)\s+(instructions|rules|prompt|message)'
+    pattern: '(what|tell\s+me\s+what)\s+(are\s+|is\s+)?(your|the|my)?\s*(hidden|internal|secret|developer)\s+(instructions?|rules?|prompt|messages?)'
     description: "Attempts to retrieve hidden assistant instructions"
     severity: 9
 
+  # ===== PRIVILEGE ESCALATION =====
   - id: tool_or_privilege_override
-    pattern: '(grant|give|enable)\s+(admin|root|system|tool|plugin)\s+(access|permissions)|run\s+this\s+without\s+approval'
+    pattern: '(grant|give|enable|provide)\s+(me\s+)?(admin|root|system|tool|plugin|elevated)\s+(access|permissions?|privileges?)|run\s+this\s+without\s+(approval|permission|authorization)'
     description: "Attempts to escalate privileges or bypass approval controls"
     severity: 9
+
+  # ===== NEW: ADVANCED ATTACK PATTERNS =====
+  - id: authority_spoofing
+    pattern: '(system|admin|developer|root)\s+(update|message|notice|directive|announcement|instruction).{0,50}(override|replace|supersede|deprecated|priority|elevated)'
+    description: "Attempts to spoof system/admin authority to manipulate behavior"
+    severity: 9
+
+  - id: multi_step_attack
+    pattern: 'step\s+\d+\s*:.{0,60}(ignore|override|bypass|disable|reveal|print|disregard|forget)'
+    description: "Multi-step instruction attack attempting to bypass detection"
+    severity: 8
+
+  - id: indirect_execution
+    pattern: '(analyze|summarize|explain|translate|repeat|paraphrase).{0,40}(then|and\s+then|followed\s+by|after\s+that).{0,40}(execute|comply|follow|obey|run|do)'
+    description: "Indirect execution wrapper (analyze→execute pattern)"
+    severity: 8
+
+  - id: roleplay_wrapper
+    pattern: '(for\s+(a|the)\s+)?(security\s+)?(drill|test|simulation|exercise|demo|practice).{0,60}(roleplay|pretend|act\s+as|behave\s+as|simulate)'
+    description: "Uses roleplay/simulation framing to bypass restrictions"
+    severity: 7
+
+  - id: policy_redefinition
+    pattern: 'from\s+now\s+on.{0,60}(means?|defined?\s+as|refers?\s+to|is\s+now|equals?)'
+    description: "Attempts to redefine policy or safety concepts"
+    severity: 8
+
+  - id: base64_decode_instruction
+    pattern: '(decode|decipher|decrypt|interpret)\s+(this\s+|the\s+)?base64.{0,60}(obey|execute|follow|run|comply|apply)'
+    description: "Instruction to decode and execute base64-encoded payload"
+    severity: 9
+
+  - id: base64_string_present
+    pattern: '[A-Za-z0-9+/]{60,}={0,2}'
+    description: "Detects presence of long base64-encoded strings (potential payload)"
+    severity: 6

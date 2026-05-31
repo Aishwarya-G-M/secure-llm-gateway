@@ -34,3 +34,13 @@ patterns:
     pattern: '(read|write|delete|modify)\s+(the\s+)?(file|filesystem|directory|folder)'
     description: "Attempts file system access or modification"
     severity: 8
+
+  - id: privileged_tool_invocation
+    pattern: '(call|invoke|execute|run|use|trigger)\s+(the\s+)?(admin|root|privileged|system)\s+(tool|function|command|utility)'
+    description: "Attempts privileged tool execution"
+    severity: 9
+
+  - id: external_request_instruction
+    pattern: '(call|invoke|send\s+request\s+to|post\s+to|fetch\s+from|make\s+request\s+to|connect\s+to)\s+(https?://|an\s+api|the\s+endpoint|external\s+service)'
+    description: "Attempts to trigger external network or API activity"
+    severity: 8
