@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.schemas.security import PolicyAction, SecurityVerdict
+from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 
 
 def build_allow_verdict(

@@ -3,13 +3,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 class PolicyAction(str, Enum):
     ALLOW = "allow"
     BLOCK = "block"
     REDACT = "redact"
     REVIEW = "review"
-
 
 class SecurityVerdict(BaseModel):
     allowed: bool

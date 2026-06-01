@@ -1,7 +1,7 @@
-from app.gateway.service import GatewayInspector
-from app.schemas.api import PromptRequest
+from app.gateway.orchestrator import GatewayOrchestrator
+from app.schemas.gateway import GatewayRequest
 from app.schemas.llm import LLMMetadata, LLMResponse
-from app.schemas.security import PolicyAction, SecurityVerdict
+from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 
@@ -9,8 +9,8 @@ from app.security.inspectors.rule_inspector import RuleInspector
 def make_request(
     prompt: str = "Explain Redis caching",
     system_prompt: str = "You are a helpful assistant",
-) -> PromptRequest:
-    return PromptRequest(prompt=prompt, system_prompt=system_prompt)
+) -> GatewayRequest:
+    return GatewayRequest(prompt=prompt, system_prompt=system_prompt)
 
 
 def make_verdict(
@@ -54,8 +54,8 @@ class FakeLlmClient:
         )
 
 
-def build_gateway(fake_llm_client: FakeLlmClient) -> GatewayInspector:
-    return GatewayInspector(
+def build_gateway(fake_llm_client: FakeLlmClient) -> GatewayOrchestrator:
+    return GatewayOrchestrator(
         rule_inspector=RuleInspector(),
         llm_guard_inspector=LLMGuardInspector(),
         llm_client=fake_llm_client,

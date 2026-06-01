@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from app.schemas.security import SecurityVerdict
+from app.schemas.security_verdict import SecurityVerdict
 
 class GatewayRequest(BaseModel):
     prompt: str
