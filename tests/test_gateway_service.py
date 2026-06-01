@@ -17,9 +17,10 @@ def make_verdict(
     *,
     allowed: bool,
     action: PolicyAction,
-    risk_score: int,
+    risk_score: float,
     reasons: list[str] | None = None,
     matched_rules: list[str] | None = None,
+    sanitized_text: str | None = None,
 ) -> SecurityVerdict:
     return SecurityVerdict(
         allowed=allowed,
@@ -27,7 +28,8 @@ def make_verdict(
         risk_score=risk_score,
         reasons=reasons or [],
         matched_rules=matched_rules or [],
-        inspector_used="rule_inspector",
+        inspector_used="test_inspector",
+        sanitized_text=sanitized_text,
     )
 
 
@@ -86,6 +88,7 @@ def test_process_chat_input_stops_before_llm_for_unsafe_input_bypass_attempt():
     assert response.output_verdict is None
     assert response.llm_output is None
 
+
 def test_process_chat_input_stops_before_llm_for_unsafe_input_instruction_override():
     llm_client = FakeLlmClient("This should never be returned")
     gateway = build_gateway(llm_client)
@@ -118,7 +121,7 @@ def test_process_chat_input_allows_input_action_redact_to_continue_current_behav
     )
 
     gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output: output_verdict
+    gateway.process_llm_output = lambda llm_output, request: output_verdict
 
     request = make_request(prompt="mildly suspicious request")
     response = gateway.process_chat_input(request)
@@ -148,7 +151,7 @@ def test_process_chat_input_withholds_output_when_output_action_is_block():
     )
 
     gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output: output_verdict
+    gateway.process_llm_output = lambda llm_output, request: output_verdict
 
     request = make_request(prompt="Tell me something harmless")
     response = gateway.process_chat_input(request)
@@ -177,7 +180,7 @@ def test_process_chat_input_withholds_output_when_output_action_is_review():
     )
 
     gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output: output_verdict
+    gateway.process_llm_output = lambda llm_output, request: output_verdict
 
     request = make_request(prompt="Tell me something borderline")
     response = gateway.process_chat_input(request)
@@ -187,7 +190,7 @@ def test_process_chat_input_withholds_output_when_output_action_is_review():
     assert response.llm_output == "Response withheld by safety policy"
 
 
-def test_process_chat_input_withholds_output_when_output_action_is_redact():
+def test_process_chat_input_returns_sanitized_output_when_output_action_is_redact():
     llm_client = FakeLlmClient("Bearer abc.def.ghi")
     gateway = build_gateway(llm_client)
 
@@ -203,17 +206,18 @@ def test_process_chat_input_withholds_output_when_output_action_is_redact():
         risk_score=6,
         reasons=["Sensitive content should be redacted"],
         matched_rules=["unsafe_output_handling:credential_like_output"],
+        sanitized_text="[REDACTED TOKEN]",
     )
 
     gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output: output_verdict
+    gateway.process_llm_output = lambda llm_output, request: output_verdict
 
     request = make_request(prompt="Return a token")
     response = gateway.process_chat_input(request)
 
     assert response.input_verdict == input_verdict
     assert response.output_verdict == output_verdict
-    assert response.llm_output == "Response withheld by safety policy"
+    assert response.llm_output == "[REDACTED TOKEN]"
 
 
 def test_process_chat_input_allows_safe_request_and_output():

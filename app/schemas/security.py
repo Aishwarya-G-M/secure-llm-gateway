@@ -1,6 +1,8 @@
 from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel, Field
-from typing import List
+
 
 class PolicyAction(str, Enum):
     ALLOW = "allow"
@@ -12,7 +14,9 @@ class PolicyAction(str, Enum):
 class SecurityVerdict(BaseModel):
     allowed: bool
     action: PolicyAction
-    risk_score: int = Field(ge=0, le=10)
-    reasons: List[str] = Field(default_factory=list)
-    matched_rules: List[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    matched_rules: list[str] = Field(default_factory=list)
+    risk_score: float = 0.0
     inspector_used: str
+    sanitized_text: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)

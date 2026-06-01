@@ -2,10 +2,10 @@ import pytest
 
 from app.gateway.service import GatewayInspector
 from app.schemas.api import PromptRequest
+from app.schemas.llm import LLMMetadata, LLMResponse
 from app.schemas.security import PolicyAction
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
-from app.schemas.llm import LLMMetadata, LLMResponse
 
 
 class FakeLlmClient:
@@ -83,6 +83,7 @@ RED_TEAM_MISSES = [
     },
 ]
 
+
 @pytest.mark.parametrize(
     "case",
     RED_TEAM_MISSES,
@@ -99,6 +100,8 @@ def test_red_team_prompts_should_not_be_cleanly_allowed(gateway, case):
     assert response is not None
     assert response.input_verdict is not None
     assert response.input_verdict.action in case["expected_actions"]
+    assert response.output_verdict is None
+    assert response.llm_output is None
 
 
 PROMPTS = [
@@ -108,6 +111,7 @@ PROMPTS = [
     },
 ]
 
+
 @pytest.mark.parametrize("case", PROMPTS, ids=[c["name"] for c in PROMPTS])
 def test_rule_inspector_should_flag_prompt_injection(case):
     inspector = RuleInspector()
@@ -115,6 +119,7 @@ def test_rule_inspector_should_flag_prompt_injection(case):
     verdict = inspector.inspect_input(case["prompt"])
 
     assert verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}
+
 
 def test_rule_inspector_flags_base64_encoded_prompt_injection():
     inspector = RuleInspector()
@@ -126,9 +131,13 @@ def test_rule_inspector_flags_base64_encoded_prompt_injection():
 
     verdict = inspector.inspect_input(prompt)
 
-    assert verdict.allowed is False or verdict.action in {"review", "block"}
-    assert "prompt_injection:base64_decode_instruction" in verdict.matched_rules or \
-           "prompt_injection:base64_string_present" in verdict.matched_rules
+    assert verdict.allowed is False
+    assert verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}
+    assert (
+        "prompt_injection:base64_decode_instruction" in verdict.matched_rules
+        or "prompt_injection:base64_string_present" in verdict.matched_rules
+    )
+
 
 @pytest.mark.parametrize(
     "prompt, expected_rule",
@@ -141,5 +150,7 @@ def test_rule_inspector_flags_base64_encoded_prompt_injection():
 )
 def test_blocks_obfuscated_prompt_injection(prompt, expected_rule):
     verdict = RuleInspector().inspect_input(prompt)
+
     assert verdict.allowed is False
+    assert verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}
     assert expected_rule in verdict.matched_rules

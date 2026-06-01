@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 
 from app.main import app, get_gateway_inspector
 from app.gateway.service import GatewayInspector
+from app.schemas.llm import LLMMetadata, LLMResponse
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
-from app.schemas.llm import LLMMetadata, LLMResponse
 
 
 class FakeLlmClient:
@@ -31,6 +31,8 @@ def llm_client_override():
 
 @pytest.fixture(autouse=True)
 def override_app_dependencies(llm_client_override):
+    original_overrides = app.dependency_overrides.copy()
+
     def override_gateway_inspector():
         return GatewayInspector(
             rule_inspector=RuleInspector(),
@@ -40,7 +42,7 @@ def override_app_dependencies(llm_client_override):
 
     app.dependency_overrides[get_gateway_inspector] = override_gateway_inspector
     yield
-    app.dependency_overrides.clear()
+    app.dependency_overrides = original_overrides
 
 
 @pytest.fixture

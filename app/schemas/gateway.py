@@ -1,13 +1,12 @@
 from pydantic import BaseModel
-from typing import Optional
 
 from app.schemas.security import SecurityVerdict
 
 class GatewayRequest(BaseModel):
-    user_prompt: str
-    system_prompt: Optional[str] = None
+    prompt: str
+    system_prompt: str | None = None
 
 class GatewayResponse(BaseModel):
     input_verdict: SecurityVerdict
-    output_verdict: Optional[SecurityVerdict] = None
-    llm_output: Optional[str] = None
+    output_verdict: SecurityVerdict | None = None
+    llm_output: str | None = None
