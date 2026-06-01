@@ -1,8 +1,7 @@
-from app.gateway.service import GatewayInspector
-from app.schemas.api import PromptRequest
-from app.schemas.gateway import GatewayResponse
+from app.gateway.orchestrator import GatewayOrchestrator
+from app.schemas.gateway import GatewayResponse, GatewayRequest
 from app.clients.llm_client import get_llm_client
-from app.schemas.security import PolicyAction
+from app.schemas.security_verdict import PolicyAction
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 from fastapi import FastAPI, HTTPException, Depends
@@ -14,11 +13,11 @@ from app.exceptions.llm_error_exceptions import (
 
 app = FastAPI(
     title="Secure LLM Gateway",
-    version="0.2.0",
-    description="A secure gateway for inspecting, testing, and protecting LLM interactions"
+    version="0.3.0",
+    description="A secure LLM gateway for “LLM hacking” defense: inspecting, testing, and protecting AI interactions end‑to‑end."
 )
 
-def get_gateway_inspector() -> GatewayInspector:
+def get_gateway_inspector() -> GatewayOrchestrator:
     rule_inspector = RuleInspector()
     llm_guard_inspector = LLMGuardInspector(
         threshold=0.5,
@@ -27,7 +26,7 @@ def get_gateway_inspector() -> GatewayInspector:
     )
     llm_client = get_llm_client()
 
-    return GatewayInspector(
+    return GatewayOrchestrator(
         rule_inspector=rule_inspector,
         llm_guard_inspector=llm_guard_inspector,
         llm_client=llm_client,
@@ -44,8 +43,8 @@ async def health_check():
 
 @app.post("/chat", response_model=GatewayResponse, response_model_exclude_none=True)
 async def chat(
-    request: PromptRequest,
-    gateway: GatewayInspector = Depends(get_gateway_inspector),
+    request: GatewayRequest,
+    gateway: GatewayOrchestrator = Depends(get_gateway_inspector),
 ):
     try:
         return gateway.process_chat_input(request)
@@ -55,113 +54,3 @@ async def chat(
         raise HTTPException(status_code=504, detail=str(e))
     except LLMProviderError as e:
         raise HTTPException(status_code=502, detail=str(e))
-
-# Temporarily disabled public routes.
-# Will be removed or refactored in a cleanup PR.
-# @app.post("/analyze", response_model=SecurityVerdict)
-# async def analyze_prompt(
-#     request: PromptRequest,
-#     gateway: GatewayInspector = Depends(get_gateway_inspector),
-# ):
-#     return gateway.process_input(request)
-
-
-
-# @app.get("/logs")
-# async def fetch_logs():
-#     return {"logs": get_logs(), "total": len(get_logs())}
-#
-#
-# @app.get("/attacks")
-# async def get_attacks(category: str = None, context: str = None, severity: str = None):
-#     """
-#     Returns the curated attack prompt library.
-#     Optional filters: category, context
-#     """
-#     results = ATTACK_PROMPTS
-#
-#     if category:
-#         results = [a for a in results if a.get("category").lower() == category.lower()]
-#     if context:
-#         results = [a for a in results if a.get("context").lower() == context.lower()]
-#     if severity:
-#         results = [a for a in results if a.get("severity", "").lower() == severity.lower()]
-#
-#     return {"attacks": results, "total": len(results)}
-#
-# @app.get("/attacks/{attack_id}")
-# async def get_attack_by_id(attack_id: str):
-#     attack = next(
-#         (item for item in ATTACK_PROMPTS if item.get("id", "").lower() == attack_id.lower()),
-#         None
-#     )
-#     if not attack:
-#         raise HTTPException(status_code=404, detail="Attack scenario not found")
-#     return attack
-#
-# @app.post("/attacks/run")
-# async def run_attack(
-#     request: AttackRunRequest,
-#     gateway: GatewayInspector = Depends(get_gateway_inspector),
-# ):
-#     attack = next((item for item in ATTACK_PROMPTS if item.get("id") == request.id), None)
-#
-#     if not attack:
-#         raise HTTPException(status_code=404, detail="Attack scenario not found")
-#
-#     prompt_request = PromptRequest(
-#         prompt=attack["prompt"],
-#         system_prompt="You are a helpful assistant.",
-#     )
-#
-#     inspection = gateway.process_input(prompt_request)
-#
-#     if inspection.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
-#         log_request(
-#             endpoint="/attacks/run",
-#             prompt=attack["prompt"],
-#             is_safe=False,
-#             reason=", ".join(inspection.reasons) if inspection.reasons else "Blocked by policy",
-#         )
-#         return {
-#             "id": attack["id"],
-#             "category": attack["category"],
-#             "context": attack.get("context"),
-#             "severity": attack.get("severity"),
-#             "owasp_ref": attack.get("owasp_ref"),
-#             "blocked": True,
-#             "reason": inspection.reasons,
-#             "response": None,
-#         }
-#
-#     try:
-#         llm_request = LLMRequest(
-#             prompt=attack["prompt"],
-#             system_prompt="You are a helpful assistant.",
-#         )
-#         llm_response = gateway.llm_client.generate(llm_request)
-#     except LLMConfigurationError as e:
-#         raise HTTPException(status_code=503, detail=str(e))
-#     except LLMTimeoutError as e:
-#         raise HTTPException(status_code=504, detail=str(e))
-#     except LLMProviderError as e:
-#         raise HTTPException(status_code=502, detail=str(e))
-#
-#     log_request(
-#         endpoint="/attacks/run",
-#         prompt=attack["prompt"],
-#         is_safe=True,
-#         reason=", ".join(inspection.reasons) if inspection.reasons else "Allowed",
-#         response=llm_response.content,
-#     )
-#
-#     return {
-#         "id": attack["id"],
-#         "category": attack["category"],
-#         "context": attack.get("context"),
-#         "severity": attack.get("severity"),
-#         "owasp_ref": attack.get("owasp_ref"),
-#         "blocked": False,
-#         "reason": inspection.reasons,
-#         "response": llm_response.content,
-#     }

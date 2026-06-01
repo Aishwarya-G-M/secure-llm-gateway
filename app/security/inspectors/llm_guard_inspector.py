@@ -1,5 +1,5 @@
-from app.models.security_models import InspectionContext
-from app.schemas.security import PolicyAction, SecurityVerdict
+from app.models.inspection_context import InspectionContext
+from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.base import BaseInspector
 
 from llm_guard.input_scanners import PromptInjection

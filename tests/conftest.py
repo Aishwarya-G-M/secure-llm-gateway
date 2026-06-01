@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, get_gateway_inspector
-from app.gateway.service import GatewayInspector
+from app.gateway.orchestrator import GatewayOrchestrator
 from app.schemas.llm import LLMMetadata, LLMResponse
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
@@ -34,7 +34,7 @@ def override_app_dependencies(llm_client_override):
     original_overrides = app.dependency_overrides.copy()
 
     def override_gateway_inspector():
-        return GatewayInspector(
+        return GatewayOrchestrator(
             rule_inspector=RuleInspector(),
             llm_guard_inspector=LLMGuardInspector(),
             llm_client=llm_client_override,

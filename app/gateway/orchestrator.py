@@ -1,13 +1,12 @@
 from app.clients.llm_protocol import LlmClientProtocol
-from app.models.security_models import InspectionContext
-from app.schemas.api import PromptRequest
-from app.schemas.gateway import GatewayResponse
+from app.models.inspection_context import InspectionContext
+from app.schemas.gateway import GatewayResponse, GatewayRequest
 from app.schemas.llm import LLMRequest
-from app.schemas.security import PolicyAction, SecurityVerdict
+from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.base import BaseInspector
 
 
-class GatewayInspector:
+class GatewayOrchestrator:
     def __init__(
         self,
         rule_inspector: BaseInspector,
@@ -18,7 +17,7 @@ class GatewayInspector:
         self.llm_guard_inspector = llm_guard_inspector
         self.llm_client = llm_client
 
-    def _build_context(self, request: PromptRequest) -> InspectionContext:
+    def _build_context(self, request: GatewayRequest) -> InspectionContext:
         return InspectionContext(
             prompt=request.prompt,
             route="/chat",
@@ -46,7 +45,7 @@ class GatewayInspector:
             },
         )
 
-    def process_input(self, request: PromptRequest) -> SecurityVerdict:
+    def process_input(self, request: GatewayRequest) -> SecurityVerdict:
         context = self._build_context(request)
 
         rule_verdict = self.rule_inspector.inspect_input(
@@ -68,7 +67,7 @@ class GatewayInspector:
     def process_llm_output(
         self,
         llm_output: str,
-        request: PromptRequest,
+        request: GatewayRequest,
     ) -> SecurityVerdict:
         context = self._build_context(request)
 
@@ -88,7 +87,7 @@ class GatewayInspector:
 
         return self._merge_allow_verdicts(rule_verdict, llm_guard_verdict)
 
-    def process_chat_input(self, prompt_request: PromptRequest) -> GatewayResponse:
+    def process_chat_input(self, prompt_request: GatewayRequest) -> GatewayResponse:
         input_security_verdict = self.process_input(prompt_request)
 
         if input_security_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:

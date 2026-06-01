@@ -1,6 +1,6 @@
 import pytest
 
-from app.schemas.security import PolicyAction
+from app.schemas.security_verdict import PolicyAction
 from app.security.inspectors.rule_inspector import RuleInspector
 
 

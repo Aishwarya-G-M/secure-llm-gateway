@@ -5,15 +5,15 @@ from app.exceptions.llm_error_exceptions import (
     LLMProviderError,
     LLMTimeoutError,
 )
-from app.gateway.service import GatewayInspector
+from app.gateway.orchestrator import GatewayOrchestrator
 from app.main import app, get_gateway_inspector
 from app.schemas.llm import LLMMetadata, LLMResponse
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 
 
-def build_gateway(llm_client) -> GatewayInspector:
-    return GatewayInspector(
+def build_gateway(llm_client) -> GatewayOrchestrator:
+    return GatewayOrchestrator(
         rule_inspector=RuleInspector(),
         llm_guard_inspector=LLMGuardInspector(),
         llm_client=llm_client,

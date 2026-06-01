@@ -1,9 +1,9 @@
 import pytest
 
-from app.gateway.service import GatewayInspector
-from app.schemas.api import PromptRequest
+from app.gateway.orchestrator import GatewayOrchestrator
+from app.schemas.gateway import GatewayRequest
 from app.schemas.llm import LLMMetadata, LLMResponse
-from app.schemas.security import PolicyAction
+from app.schemas.security_verdict import PolicyAction
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 
@@ -23,7 +23,7 @@ class FakeLlmClient:
 
 @pytest.fixture
 def gateway():
-    return GatewayInspector(
+    return GatewayOrchestrator(
         rule_inspector=RuleInspector(),
         llm_guard_inspector=LLMGuardInspector(),
         llm_client=FakeLlmClient(),
@@ -90,7 +90,7 @@ RED_TEAM_MISSES = [
     ids=[case["name"] for case in RED_TEAM_MISSES],
 )
 def test_red_team_prompts_should_not_be_cleanly_allowed(gateway, case):
-    request = PromptRequest(
+    request = GatewayRequest(
         prompt=case["prompt"],
         system_prompt="You are a helpful assistant.",
     )
