@@ -4,6 +4,7 @@ from pathlib import Path
 
 import yaml
 
+from app.exceptions.policy import RuleInspectorError
 from app.models.inspection_context import InspectionContext
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.base import BaseInspector
@@ -150,10 +151,8 @@ def _build_verdict_from_matches(
         },
     )
 
-
 INPUT_PATTERNS = _load_patterns_for_stage("input_manifest.yaml")
 OUTPUT_PATTERNS = _load_patterns_for_stage("output_manifest.yaml")
-
 
 class RuleInspector(BaseInspector):
     def inspect_input(
@@ -161,41 +160,47 @@ class RuleInspector(BaseInspector):
         text: str,
         context: InspectionContext | None = None,
     ) -> SecurityVerdict:
-        normalized_text = _normalize_text(text)
-        matched_rules, reasons, max_severity, match_details = _scan_patterns(
-            normalized_text,
-            INPUT_PATTERNS,
-        )
+        try:
+            normalized_text = _normalize_text(text)
+            matched_rules, reasons, max_severity, match_details = _scan_patterns(
+                normalized_text,
+                INPUT_PATTERNS,
+            )
 
-        return _build_verdict_from_matches(
-            inspector_used="rule_inspector",
-            stage="input",
-            matched_rules=matched_rules,
-            reasons=reasons,
-            max_severity=max_severity,
-            no_match_reason="No known unsafe input patterns detected",
-            match_details=match_details,
-            context=context,
-        )
+            return _build_verdict_from_matches(
+                inspector_used="rule_inspector",
+                stage="input",
+                matched_rules=matched_rules,
+                reasons=reasons,
+                max_severity=max_severity,
+                no_match_reason="No known unsafe input patterns detected",
+                match_details=match_details,
+                context=context,
+            )
+        except Exception as exc:
+            raise RuleInspectorError("Failed to inspect input") from exc
 
     def inspect_output(
         self,
         text: str,
         context: InspectionContext | None = None,
     ) -> SecurityVerdict:
-        normalized_text = _normalize_text(text)
-        matched_rules, reasons, max_severity, match_details = _scan_patterns(
-            normalized_text,
-            OUTPUT_PATTERNS,
-        )
+        try:
+            normalized_text = _normalize_text(text)
+            matched_rules, reasons, max_severity, match_details = _scan_patterns(
+                normalized_text,
+                OUTPUT_PATTERNS,
+            )
 
-        return _build_verdict_from_matches(
-            inspector_used="rule_inspector",
-            stage="output",
-            matched_rules=matched_rules,
-            reasons=reasons,
-            max_severity=max_severity,
-            no_match_reason="No known unsafe output patterns detected",
-            match_details=match_details,
-            context=context,
-        )
+            return _build_verdict_from_matches(
+                inspector_used="rule_inspector",
+                stage="output",
+                matched_rules=matched_rules,
+                reasons=reasons,
+                max_severity=max_severity,
+                no_match_reason="No known unsafe output patterns detected",
+                match_details=match_details,
+                context=context,
+            )
+        except Exception as exc:
+            raise RuleInspectorError("Failed to inspect output") from exc

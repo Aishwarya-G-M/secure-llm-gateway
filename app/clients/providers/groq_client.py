@@ -2,10 +2,9 @@ import os
 import time
 
 from dotenv import load_dotenv
-from groq import Groq
 from groq.types.chat import ChatCompletionMessageParam
 
-from app.exceptions.llm_error_exceptions import (
+from app.exceptions.llm import (
     LLMConfigurationError,
     LLMProviderError,
     LLMTimeoutError,

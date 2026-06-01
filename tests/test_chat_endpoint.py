@@ -1,6 +1,6 @@
 import pytest
 
-from app.exceptions.llm_error_exceptions import (
+from app.exceptions.llm import (
     LLMConfigurationError,
     LLMProviderError,
     LLMTimeoutError,
@@ -139,6 +139,7 @@ def test_chat_returns_504_on_llm_timeout(client, override_gateway):
     )
 
     assert response.status_code == 504
+    assert "timed out" in response.json()["detail"].lower()
 
 
 def test_chat_returns_502_on_provider_error(client, override_gateway):
@@ -153,6 +154,7 @@ def test_chat_returns_502_on_provider_error(client, override_gateway):
     )
 
     assert response.status_code == 502
+    assert "provider" in response.json()["detail"].lower()
 
 
 def test_chat_returns_503_on_configuration_error(client, override_gateway):
@@ -167,3 +169,4 @@ def test_chat_returns_503_on_configuration_error(client, override_gateway):
     )
 
     assert response.status_code == 503
+    assert "missing groq_api_key" in response.json()["detail"].lower()

@@ -1,3 +1,4 @@
+from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 from app.gateway.orchestrator import GatewayOrchestrator
 from app.schemas.gateway import GatewayResponse, GatewayRequest
 from app.clients.llm_client import get_llm_client
@@ -5,7 +6,7 @@ from app.schemas.security_verdict import PolicyAction
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 from fastapi import FastAPI, HTTPException, Depends
-from app.exceptions.llm_error_exceptions import (
+from app.exceptions.llm import (
     LLMConfigurationError,
     LLMProviderError,
     LLMTimeoutError,
@@ -13,7 +14,7 @@ from app.exceptions.llm_error_exceptions import (
 
 app = FastAPI(
     title="Secure LLM Gateway",
-    version="0.3.0",
+    version="0.4.0",
     description="A secure LLM gateway for “LLM hacking” defense: inspecting, testing, and protecting AI interactions end‑to‑end."
 )
 
@@ -48,9 +49,20 @@ async def chat(
 ):
     try:
         return gateway.process_chat_input(request)
-    except LLMConfigurationError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except LLMTimeoutError as e:
-        raise HTTPException(status_code=504, detail=str(e))
-    except LLMProviderError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+
+    except GatewayInspectionError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    except GatewayExecutionError as exc:
+        cause = exc.__cause__
+
+        if isinstance(cause, LLMConfigurationError):
+            raise HTTPException(status_code=503, detail=str(cause)) from exc
+
+        if isinstance(cause, LLMTimeoutError):
+            raise HTTPException(status_code=504, detail=str(cause)) from exc
+
+        if isinstance(cause, LLMProviderError):
+            raise HTTPException(status_code=502, detail=str(cause)) from exc
+
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
