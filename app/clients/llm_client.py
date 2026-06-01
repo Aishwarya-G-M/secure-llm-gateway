@@ -2,7 +2,7 @@ import os
 
 from app.clients.llm_protocol import LlmClientProtocol
 from app.clients.providers.groq_client import GroqLlmClient
-from app.exceptions.llm_error_exceptions import LLMConfigurationError
+from app.exceptions.llm import LLMConfigurationError
 
 
 def get_llm_client() -> LlmClientProtocol:
