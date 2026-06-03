@@ -1,12 +1,26 @@
+import re
+from typing import Any
+
 from app.exceptions.policy import LLMGuardInspectorError
 from app.models.inspection_context import InspectionContext
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.base import BaseInspector
 
-from llm_guard.input_scanners import PromptInjection
-from llm_guard.input_scanners.prompt_injection import MatchType
-from llm_guard.output_scanners import Sensitive
+from llm_guard.input_scanners import (
+    Gibberish,
+    InvisibleText,
+    PromptInjection,
+    Secrets
+)
+from llm_guard.input_scanners.prompt_injection import MatchType as PromptInjectionMatchType
+from llm_guard.output_scanners import (
+    Sensitive,
+    Relevance
+)
 
+def format_matched_rule(scanner: Any) -> str:
+    scanner_name = re.sub(r"(?<!^)(?=[A-Z])", "_", scanner.__class__.__name__).lower()
+    return f"llm_guard:{scanner_name}"
 
 class LLMGuardInspector(BaseInspector):
     def __init__(
@@ -16,64 +30,83 @@ class LLMGuardInspector(BaseInspector):
         output_violation_action: PolicyAction = PolicyAction.BLOCK,
     ):
         self.output_violation_action = output_violation_action
+        self.entity_types = entity_types or [
+            "PERSON",
+            "EMAIL",
+            "PHONE_NUMBER",
+            "ADDRESS",
+            "CREDIT_CARD",
+            "SSN",
+            "IP_ADDRESS",
+        ]
 
-        self.input_scanner = PromptInjection(
-            threshold=threshold,
-            match_type=MatchType.FULL,
-        )
-        self.output_scanner = Sensitive(
-            entity_types=entity_types or ["PERSON", "EMAIL"],
-            redact=True,
-        )
+        self.input_scanners = [
+            PromptInjection(
+                threshold=threshold,
+                match_type=PromptInjectionMatchType.FULL,
+            ),
+            Gibberish(),
+            InvisibleText(),
+            Secrets(),
+        ]
+
+        self.output_scanners = [
+            Sensitive(
+                entity_types=self.entity_types,
+                redact=True,
+            ),
+            Relevance(threshold=0.5),
+        ]
 
     def inspect_input(
-        self,
-        text: str,
-        context: InspectionContext | None = None,
+            self,
+            text: str,
+            context: InspectionContext | None = None,
     ) -> SecurityVerdict:
         try:
-            sanitized_text, is_valid, risk_score = self.input_scanner.scan(text)
+            sanitized_text = text
+            normalized_risk = 0.0
 
-            normalized_risk = float(risk_score or 0.0)
-            if normalized_risk <= 1:
-                normalized_risk *= 10
+            for scanner in self.input_scanners:
+                sanitized_text, is_valid, risk_score = scanner.scan(sanitized_text)
 
-            if not is_valid:
-                return SecurityVerdict(
-                    allowed=False,
-                    action=PolicyAction.BLOCK,
-                    risk_score=normalized_risk,
-                    reasons=[
-                        f"LLM Guard detected prompt injection risk (score={risk_score})"
-                    ],
-                    matched_rules=["llm_guard:prompt_injection"],
-                    inspector_used="llm_guard_inspector",
-                    sanitized_text=sanitized_text,
-                    metadata={
-                        "provider": "llm_guard",
-                        "stage": "input",
-                        "scanner": "PromptInjection",
-                        "raw_risk_score": risk_score,
-                        "threshold": getattr(self.input_scanner, "threshold", None),
-                        "route": context.route if context else None,
-                        "model_name": context.model_name if context else None,
-                    },
-                )
+                normalized_risk = float(risk_score or 0.0)
+                if normalized_risk <= 1:
+                    normalized_risk *= 10
+
+                if not is_valid:
+                    return SecurityVerdict(
+                        allowed=False,
+                        action=PolicyAction.BLOCK,
+                        risk_score=normalized_risk,
+                        reasons=[
+                            f"LLM Guard {scanner.__class__.__name__} flagged the input (score={risk_score})"
+                        ],
+                        matched_rules=[format_matched_rule(scanner)],
+                        inspector_used="llm_guard_inspector",
+                        sanitized_text=sanitized_text,
+                        metadata={
+                            "provider": "llm_guard",
+                            "stage": "input",
+                            "scanner": scanner.__class__.__name__,
+                            "raw_risk_score": risk_score,
+                            "threshold": getattr(scanner, "threshold", None),
+                            "route": context.route if context else None,
+                            "model_name": context.model_name if context else None,
+                        },
+                    )
 
             return SecurityVerdict(
                 allowed=True,
                 action=PolicyAction.ALLOW,
                 risk_score=normalized_risk,
-                reasons=["No prompt injection detected by LLM Guard"],
+                reasons=["LLM Guard input inspection passed"],
                 matched_rules=[],
                 inspector_used="llm_guard_inspector",
                 sanitized_text=sanitized_text,
                 metadata={
                     "provider": "llm_guard",
                     "stage": "input",
-                    "scanner": "PromptInjection",
-                    "raw_risk_score": risk_score,
-                    "threshold": getattr(self.input_scanner, "threshold", None),
                     "route": context.route if context else None,
                     "model_name": context.model_name if context else None,
                 },
@@ -82,9 +115,9 @@ class LLMGuardInspector(BaseInspector):
             raise LLMGuardInspectorError("LLMGuard inspection failed for input prompt") from exp
 
     def inspect_output(
-        self,
-        text: str,
-        context: InspectionContext | None = None,
+            self,
+            text: str,
+            context: InspectionContext | None = None,
     ) -> SecurityVerdict:
         try:
             if not text or not text.strip():
@@ -99,38 +132,44 @@ class LLMGuardInspector(BaseInspector):
                     metadata={
                         "provider": "llm_guard",
                         "stage": "output",
-                        "scanner": "Sensitive",
                         "route": context.route if context else None,
                         "model_name": context.model_name if context else None,
                     },
                 )
 
             prompt = context.prompt if context and context.prompt else ""
-            sanitized_text, is_valid, risk_score = self.output_scanner.scan(prompt, text)
+            sanitized_text = text
+            normalized_risk = 0.0
 
-            normalized_risk = float(risk_score or 0.0)
-            if normalized_risk <= 1:
-                normalized_risk *= 10
+            for scanner in self.output_scanners:
+                sanitized_text, is_valid, risk_score = scanner.scan(prompt, sanitized_text)
+                risk_score = float(risk_score)
 
-            if not is_valid:
-                return SecurityVerdict(
-                    allowed=False,
-                    action=PolicyAction.BLOCK,
-                    reasons=["LLM Guard output scanner flagged sensitive content"],
-                    matched_rules=["llm_guard:sensitive"],
-                    risk_score=normalized_risk,
-                    inspector_used="llm_guard_inspector",
-                    sanitized_text=sanitized_text,
-                    metadata={
-                        "provider": "llm_guard",
-                        "stage": "output",
-                        "scanner": "Sensitive",
-                        "raw_risk_score": risk_score,
-                        "entity_types": getattr(self.output_scanner, "entity_types", None),
-                        "route": context.route if context else None,
-                        "model_name": context.model_name if context else None,
-                    },
-                )
+                normalized_risk = float(risk_score or 0.0)
+                if normalized_risk <= 1:
+                    normalized_risk *= 10
+
+                if not is_valid:
+                    return SecurityVerdict(
+                        allowed=False,
+                        action=PolicyAction.BLOCK,
+                        reasons=[
+                            f"LLM Guard {scanner.__class__.__name__} flagged output content"
+                        ],
+                        matched_rules=[format_matched_rule(scanner)],
+                        risk_score=normalized_risk,
+                        inspector_used="llm_guard_inspector",
+                        sanitized_text=sanitized_text,
+                        metadata={
+                            "provider": "llm_guard",
+                            "stage": "output",
+                            "scanner": scanner.__class__.__name__,
+                            "raw_risk_score": risk_score,
+                            "entity_types": getattr(scanner, "entity_types", None),
+                            "route": context.route if context else None,
+                            "model_name": context.model_name if context else None,
+                        },
+                    )
 
             return SecurityVerdict(
                 allowed=True,
@@ -143,9 +182,6 @@ class LLMGuardInspector(BaseInspector):
                 metadata={
                     "provider": "llm_guard",
                     "stage": "output",
-                    "scanner": "Sensitive",
-                    "raw_risk_score": risk_score,
-                    "entity_types": getattr(self.output_scanner, "entity_types", None),
                     "route": context.route if context else None,
                     "model_name": context.model_name if context else None,
                 },
