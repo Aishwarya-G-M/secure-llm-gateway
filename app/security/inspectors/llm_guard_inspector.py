@@ -1,3 +1,6 @@
+import re
+from typing import Any
+
 from app.exceptions.policy import LLMGuardInspectorError
 from app.models.inspection_context import InspectionContext
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
@@ -11,8 +14,13 @@ from llm_guard.input_scanners import (
 )
 from llm_guard.input_scanners.prompt_injection import MatchType as PromptInjectionMatchType
 from llm_guard.output_scanners import (
-    Sensitive
+    Sensitive,
+    Relevance
 )
+
+def format_matched_rule(scanner: Any) -> str:
+    scanner_name = re.sub(r"(?<!^)(?=[A-Z])", "_", scanner.__class__.__name__).lower()
+    return f"llm_guard:{scanner_name}"
 
 class LLMGuardInspector(BaseInspector):
     def __init__(
@@ -46,7 +54,8 @@ class LLMGuardInspector(BaseInspector):
             Sensitive(
                 entity_types=self.entity_types,
                 redact=True,
-            )
+            ),
+            Relevance(threshold=0.5),
         ]
 
     def inspect_input(
@@ -73,7 +82,7 @@ class LLMGuardInspector(BaseInspector):
                         reasons=[
                             f"LLM Guard {scanner.__class__.__name__} flagged the input (score={risk_score})"
                         ],
-                        matched_rules=[f"llm_guard:{scanner.__class__.__name__.lower()}"],
+                        matched_rules=[format_matched_rule(scanner)],
                         inspector_used="llm_guard_inspector",
                         sanitized_text=sanitized_text,
                         metadata={
@@ -134,6 +143,7 @@ class LLMGuardInspector(BaseInspector):
 
             for scanner in self.output_scanners:
                 sanitized_text, is_valid, risk_score = scanner.scan(prompt, sanitized_text)
+                risk_score = float(risk_score)
 
                 normalized_risk = float(risk_score or 0.0)
                 if normalized_risk <= 1:
@@ -146,7 +156,7 @@ class LLMGuardInspector(BaseInspector):
                         reasons=[
                             f"LLM Guard {scanner.__class__.__name__} flagged output content"
                         ],
-                        matched_rules=[f"llm_guard:{scanner.__class__.__name__.lower()}"],
+                        matched_rules=[format_matched_rule(scanner)],
                         risk_score=normalized_risk,
                         inspector_used="llm_guard_inspector",
                         sanitized_text=sanitized_text,

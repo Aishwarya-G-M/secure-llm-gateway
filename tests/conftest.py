@@ -9,19 +9,19 @@ from app.security.inspectors.rule_inspector import RuleInspector
 
 
 class FakeLlmClient:
-    def generate(self, request):
-        return LLMResponse(
-            content="safe model response",
-            metadata=LLMMetadata(
-                request_id="test-ci",
-                provider="fake",
-                model="fake-model",
-                latency_ms=1,
-            ),
-            input_tokens=5,
-            output_tokens=3,
-            total_tokens=8,
-        )
+        def generate(self, request):
+            return LLMResponse(
+                content="Redis caching stores frequently accessed data in memory to speed up responses and reduce repeated database queries.",
+                metadata=LLMMetadata(
+                    request_id="test-ci",
+                    provider="fake",
+                    model="fake-model",
+                    latency_ms=1,
+                ),
+                input_tokens=5,
+                output_tokens=3,
+                total_tokens=8,
+            )
 
 
 @pytest.fixture

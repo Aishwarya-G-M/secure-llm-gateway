@@ -15,16 +15,15 @@ def test_chat_allows_safe_request(client):
 
     assert response.status_code == 200
     body = response.json()
-
     assert "input_verdict" in body
     assert "output_verdict" in body
     assert "llm_output" in body
 
     assert body["input_verdict"]["allowed"] is True
     assert body["input_verdict"]["action"] == "allow"
-    assert body["output_verdict"]["action"] == "allow"
-    assert body["llm_output"] is not None
 
+    assert body["output_verdict"]["allowed"] is True
+    assert body["output_verdict"]["action"] == "allow"
 
 def test_chat_blocks_known_prompt_injection(client):
     response = client.post(

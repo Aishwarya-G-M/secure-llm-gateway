@@ -76,7 +76,7 @@ def test_llm_guard_inspector_blocks_known_prompt_injection(inspector):
     assert verdict.action == "block"
     assert verdict.inspector_used == "llm_guard_inspector"
     assert verdict.risk_score > 0
-    assert "llm_guard:promptinjection" in verdict.matched_rules
+    assert "llm_guard:prompt_injection" in verdict.matched_rules
     assert any("PromptInjection" in reason for reason in verdict.reasons)
 
 
