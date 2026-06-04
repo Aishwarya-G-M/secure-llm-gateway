@@ -23,10 +23,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Secure LLM Gateway",
-    version="0.4.0",
+    version="0.5.0",
     description="A secure LLM gateway for “LLM hacking” defense: inspecting, testing, and protecting AI interactions end‑to‑end.",
     lifespan=lifespan,
 )
+configure_logging()
+app.add_middleware(RequestContext)
+
+logger = logging.getLogger(__name__)
+
+LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
 
 def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
@@ -44,7 +51,6 @@ def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
 def read_root():
     return {"message": "API is running"}
 
-
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
@@ -52,11 +58,32 @@ async def health_check():
 
 @app.post("/chat", response_model=GatewayResponse, response_model_exclude_none=True)
 async def chat(
-    request: GatewayRequest,
+        request: Request,
+    gateway_request: GatewayRequest,
     gateway: GatewayOrchestrator = Depends(get_gateway_inspector),
 ):
+    logger.info(
+        "chat_request_completed",
+        extra={
+            "request_id": request.state.request_id,
+            "trace_id": request.state.trace_id,
+            "route": "/chat"
+        },
+    )
+
     try:
-        return gateway.process_chat_input(request)
+        response = gateway.process_chat_input(gateway_request)
+        logger.info(
+            "chat_request_completed",
+            extra={
+                "request_id": request.state.request_id,
+                "trace_id": request.state.trace_id,
+                "route": "/chat",
+                "input_allowed": response.input_verdict.allowed,
+                "output_allowed": response.output_verdict.allowed
+            },
+        )
+        return response
 
     except GatewayInspectionError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
