@@ -1,8 +1,8 @@
+import logging
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, HTTPException, Depends, Request
-
 from app.clients.llm_client import get_llm_client
+from app.core.logging_setup import configure_logging
 from app.core.resources import create_app_resources
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 from app.exceptions.llm import (
@@ -11,15 +11,14 @@ from app.exceptions.llm import (
     LLMTimeoutError,
 )
 from app.gateway.orchestrator import GatewayOrchestrator
+from app.middleware.request_context import RequestContext
 from app.schemas.gateway import GatewayRequest, GatewayResponse
 from app.security.inspectors.rule_inspector import RuleInspector
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.resources = create_app_resources()
     yield
-
 
 app = FastAPI(
     title="Secure LLM Gateway",
@@ -46,7 +45,6 @@ def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
         llm_client=llm_client,
     )
 
-
 @app.get("/")
 def read_root():
     return {"message": "API is running"}
@@ -70,17 +68,26 @@ async def chat(
             "route": "/chat"
         },
     )
-
     try:
         response = gateway.process_chat_input(gateway_request)
+        output_allowed = (
+            response.output_verdict.allowed
+            if response.output_verdict is not None
+            else None
+        )
+        input_verdict = (
+            response.input_verdict.allowed
+            if response.input_verdict is not None
+            else None
+        )
         logger.info(
             "chat_request_completed",
             extra={
                 "request_id": request.state.request_id,
                 "trace_id": request.state.trace_id,
                 "route": "/chat",
-                "input_allowed": response.input_verdict.allowed,
-                "output_allowed": response.output_verdict.allowed
+                "input_verdict":input_verdict,
+                "output_allowed":output_allowed
             },
         )
         return response
