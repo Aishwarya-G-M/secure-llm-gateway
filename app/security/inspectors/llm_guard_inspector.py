@@ -93,6 +93,8 @@ class LLMGuardInspector(BaseInspector):
                             "threshold": getattr(scanner, "threshold", None),
                             "route": context.route if context else None,
                             "model_name": context.model_name if context else None,
+                            "request_id": context.request_id if context else None,
+                            "trace_id": context.trace_id if context else None,
                         },
                     )
 
@@ -134,6 +136,8 @@ class LLMGuardInspector(BaseInspector):
                         "stage": "output",
                         "route": context.route if context else None,
                         "model_name": context.model_name if context else None,
+                        "request_id": context.request_id if context else None,
+                        "trace_id": context.trace_id if context else None,
                     },
                 )
 
@@ -168,6 +172,8 @@ class LLMGuardInspector(BaseInspector):
                             "entity_types": getattr(scanner, "entity_types", None),
                             "route": context.route if context else None,
                             "model_name": context.model_name if context else None,
+                            "request_id": context.request_id if context else None,
+                            "trace_id": context.trace_id if context else None,
                         },
                     )
 
@@ -184,6 +190,8 @@ class LLMGuardInspector(BaseInspector):
                     "stage": "output",
                     "route": context.route if context else None,
                     "model_name": context.model_name if context else None,
+                    "request_id": context.request_id if context else None,
+                    "trace_id": context.trace_id if context else None,
                 },
             )
         except Exception as exp:

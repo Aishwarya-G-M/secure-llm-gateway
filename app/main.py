@@ -1,4 +1,5 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, Request
 from app.clients.llm_client import get_llm_client
@@ -31,10 +32,6 @@ app.add_middleware(RequestContext)
 
 logger = logging.getLogger(__name__)
 
-LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
-logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-
-
 def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
     resources = request.app.state.resources
     llm_client = get_llm_client()
@@ -60,34 +57,26 @@ async def chat(
     gateway_request: GatewayRequest,
     gateway: GatewayOrchestrator = Depends(get_gateway_inspector),
 ):
-    logger.info(
-        "chat_request_completed",
-        extra={
-            "request_id": request.state.request_id,
-            "trace_id": request.state.trace_id,
-            "route": "/chat"
-        },
-    )
+    started_at = time.perf_counter()
+
     try:
-        response = gateway.process_chat_input(gateway_request)
-        output_allowed = (
-            response.output_verdict.allowed
-            if response.output_verdict is not None
-            else None
+        response = gateway.process_chat_input(
+            gateway_request,
+            request_id=request.state.request_id,
+            trace_id=request.state.trace_id,
         )
-        input_verdict = (
-            response.input_verdict.allowed
-            if response.input_verdict is not None
-            else None
-        )
+
+        latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
+
         logger.info(
             "chat_request_completed",
             extra={
                 "request_id": request.state.request_id,
                 "trace_id": request.state.trace_id,
                 "route": "/chat",
-                "input_verdict":input_verdict,
-                "output_allowed":output_allowed
+                "input_action": response.input_verdict.action.value if response.input_verdict else None,
+                "output_action": response.output_verdict.action.value if response.output_verdict else None,
+                "latency_ms": latency_ms,
             },
         )
         return response
