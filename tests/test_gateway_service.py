@@ -120,8 +120,8 @@ def test_process_chat_input_allows_input_action_redact_to_continue_current_behav
         reasons=["No known unsafe output patterns detected"],
     )
 
-    gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output, request: output_verdict
+    gateway.process_input = lambda *args, **kwargs: input_verdict
+    gateway.process_llm_output = lambda *args, **kwargs: output_verdict
 
     request = make_request(prompt="mildly suspicious request")
     response = gateway.process_chat_input(request)
@@ -150,8 +150,8 @@ def test_process_chat_input_withholds_output_when_output_action_is_block():
         matched_rules=["unsafe_output_handling:html_script_injection"],
     )
 
-    gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output, request: output_verdict
+    gateway.process_input = lambda *args, **kwargs: input_verdict
+    gateway.process_llm_output = lambda *args, **kwargs: output_verdict
 
     request = make_request(prompt="Tell me something harmless")
     response = gateway.process_chat_input(request)
@@ -179,8 +179,8 @@ def test_process_chat_input_withholds_output_when_output_action_is_review():
         matched_rules=["unsafe_output_handling:unsafe_bypass_language"],
     )
 
-    gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output, request: output_verdict
+    gateway.process_input = lambda *args, **kwargs: input_verdict
+    gateway.process_llm_output = lambda *args, **kwargs: output_verdict
 
     request = make_request(prompt="Tell me something borderline")
     response = gateway.process_chat_input(request)
@@ -209,8 +209,8 @@ def test_process_chat_input_returns_sanitized_output_when_output_action_is_redac
         sanitized_text="[REDACTED TOKEN]",
     )
 
-    gateway.process_input = lambda request: input_verdict
-    gateway.process_llm_output = lambda llm_output, request: output_verdict
+    gateway.process_input = lambda *args, **kwargs: input_verdict
+    gateway.process_llm_output = lambda *args, **kwargs: output_verdict
 
     request = make_request(prompt="Return a token")
     response = gateway.process_chat_input(request)

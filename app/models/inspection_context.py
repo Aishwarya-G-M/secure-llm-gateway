@@ -6,4 +6,6 @@ class InspectionContext(BaseModel):
     user_id: str | None = None
     route: str | None = None
     model_name: str | None = None
+    request_id: str | None = None
+    trace_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
