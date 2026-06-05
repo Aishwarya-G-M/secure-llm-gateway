@@ -4,24 +4,50 @@ from fastapi.testclient import TestClient
 from app.main import app, get_gateway_inspector
 from app.gateway.orchestrator import GatewayOrchestrator
 from app.schemas.llm import LLMMetadata, LLMResponse
-from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
+from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.rule_inspector import RuleInspector
 
 
 class FakeLlmClient:
-        def generate(self, request):
-            return LLMResponse(
-                content="Redis caching stores frequently accessed data in memory to speed up responses and reduce repeated database queries.",
-                metadata=LLMMetadata(
-                    request_id="test-ci",
-                    provider="fake",
-                    model="fake-model",
-                    latency_ms=1,
-                ),
-                input_tokens=5,
-                output_tokens=3,
-                total_tokens=8,
-            )
+    def generate(self, request):
+        return LLMResponse(
+            content="Redis caching stores frequently accessed data in memory to speed up responses and reduce repeated database queries.",
+            metadata=LLMMetadata(
+                request_id="test-ci",
+                provider="fake",
+                model="fake-model",
+                latency_ms=1,
+            ),
+            input_tokens=5,
+            output_tokens=3,
+            total_tokens=8,
+        )
+
+
+class FakeLLMGuardInspector:
+    def inspect_input(self, text, context=None):
+        return SecurityVerdict(
+            allowed=True,
+            action=PolicyAction.ALLOW,
+            reasons=["No known unsafe input patterns detected"],
+            matched_rules=[],
+            risk_score=0.0,
+            inspector_used="fake_llm_guard_inspector",
+            sanitized_text=None,
+            metadata={},
+        )
+
+    def inspect_output(self, text, context=None):
+        return SecurityVerdict(
+            allowed=True,
+            action=PolicyAction.ALLOW,
+            reasons=["No known unsafe output patterns detected"],
+            matched_rules=[],
+            risk_score=0.0,
+            inspector_used="fake_llm_guard_inspector",
+            sanitized_text=None,
+            metadata={},
+        )
 
 
 @pytest.fixture
@@ -36,7 +62,7 @@ def override_app_dependencies(llm_client_override):
     def override_gateway_inspector():
         return GatewayOrchestrator(
             rule_inspector=RuleInspector(),
-            llm_guard_inspector=LLMGuardInspector(),
+            llm_guard_inspector=FakeLLMGuardInspector(),
             llm_client=llm_client_override,
         )
 
