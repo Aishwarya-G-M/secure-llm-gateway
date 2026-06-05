@@ -1,5 +1,6 @@
 import pytest
 
+from app.models.inspection_context import InspectionContext
 from app.schemas.security_verdict import PolicyAction
 from app.security.inspectors.rule_inspector import RuleInspector
 
@@ -107,3 +108,34 @@ def test_high_severity_output_is_blocked(inspector):
 
     assert verdict.action == PolicyAction.BLOCK
     assert verdict.allowed is False
+
+def test_inspect_input_blocks_when_prompt_exceeds_max_chars():
+    inspector = RuleInspector()
+    text = "a" * 8001
+
+    verdict = inspector.inspect_input(text)
+
+    assert verdict.allowed is False
+    assert verdict.action == PolicyAction.BLOCK
+    assert verdict.matched_rules == ["input_size:prompt_too_long"]
+    assert "prompt exceeds maximum length" in verdict.reasons[0].lower()
+    assert verdict.metadata["field_name"] == "prompt"
+    assert verdict.metadata["actual_chars"] == 8001
+    assert verdict.metadata["max_chars"] == 8000
+
+def test_inspect_input_blocks_when_system_prompt_exceeds_max_chars():
+    inspector = RuleInspector()
+    context = InspectionContext(
+        prompt="hello",
+        metadata={"system_prompt": "b" * 4001},
+    )
+
+    verdict = inspector.inspect_input("hello", context=context)
+
+    assert verdict.allowed is False
+    assert verdict.action == PolicyAction.BLOCK
+    assert verdict.matched_rules == ["input_size:system_prompt_too_long"]
+    assert "system_prompt exceeds maximum length" in verdict.reasons[0].lower()
+    assert verdict.metadata["field_name"] == "system_prompt"
+    assert verdict.metadata["actual_chars"] == 4001
+    assert verdict.metadata["max_chars"] == 4000
