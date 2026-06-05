@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, Request
@@ -12,6 +13,7 @@ from app.exceptions.llm import (
     LLMTimeoutError,
 )
 from app.gateway.orchestrator import GatewayOrchestrator
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_context import RequestContext
 from app.schemas.gateway import GatewayRequest, GatewayResponse
 from app.security.inspectors.rule_inspector import RuleInspector
@@ -29,6 +31,18 @@ app = FastAPI(
 )
 configure_logging()
 app.add_middleware(RequestContext)
+app.add_middleware(
+    RateLimitMiddleware,
+    default_max_requests=int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "100")),
+    default_window_seconds=int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60")),
+    path_limits={
+        "/chat": {
+            "max_requests": int(os.getenv("CHAT_RATE_LIMIT_MAX_REQUESTS", "10")),
+            "window_seconds": int(os.getenv("CHAT_RATE_LIMIT_WINDOW_SECONDS", "60")),
+        }
+    },
+    excluded_paths={"/health"},
+)
 
 logger = logging.getLogger(__name__)
 
