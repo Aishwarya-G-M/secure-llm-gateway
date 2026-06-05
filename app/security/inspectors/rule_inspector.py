@@ -13,7 +13,8 @@ from app.security.policy import resolve_action
 PATTERNS_DIR = Path(__file__).resolve().parent.parent / "patterns"
 ZERO_WIDTH_RE = re.compile(r"[\u200b\u200c\u200d\u2060\ufeff]")
 CONTROL_RE = re.compile(r"[\u202a-\u202e\u2066-\u2069]")
-
+MAX_PROMPT_CHARS = 8_000
+MAX_SYSTEM_PROMPT_CHARS = 4_000
 
 def _normalize_text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text)
@@ -132,6 +133,8 @@ def _build_verdict_from_matches(
                 "matches": match_details,
                 "route": context.route if context else None,
                 "model_name": context.model_name if context else None,
+                "request_id": context.request_id if context else None,
+                "trace_id": context.trace_id if context else None,
             },
         )
 
@@ -151,6 +154,34 @@ def _build_verdict_from_matches(
         },
     )
 
+def _build_size_limit_verdict(
+    *,
+    field_name: str,
+    actual_chars: int,
+    max_chars: int,
+    rule_id: str,
+    context: InspectionContext | None = None,
+) -> SecurityVerdict:
+    return SecurityVerdict(
+        allowed=False,
+        action=PolicyAction.BLOCK,
+        risk_score=8.0,
+        reasons=[f"{field_name} exceeds maximum length of {max_chars} characters"],
+        matched_rules=[rule_id],
+        inspector_used="rule_inspector",
+        metadata={
+            "provider": "custom_rules",
+            "stage": "input",
+            "route": context.route if context else None,
+            "model_name": context.model_name if context else None,
+            "request_id": context.request_id if context else None,
+            "trace_id": context.trace_id if context else None,
+            "field_name": field_name,
+            "actual_chars": actual_chars,
+            "max_chars": max_chars,
+        },
+    )
+
 INPUT_PATTERNS = _load_patterns_for_stage("input_manifest.yaml")
 OUTPUT_PATTERNS = _load_patterns_for_stage("output_manifest.yaml")
 
@@ -161,6 +192,27 @@ class RuleInspector(BaseInspector):
         context: InspectionContext | None = None,
     ) -> SecurityVerdict:
         try:
+            if len(text) > MAX_PROMPT_CHARS:
+                return _build_size_limit_verdict(
+                    field_name="prompt",
+                    actual_chars=len(text),
+                    max_chars=MAX_PROMPT_CHARS,
+                    rule_id="input_size:prompt_too_long",
+                    context=context,
+                )
+            system_prompt = None
+            if context is not None:
+                system_prompt = context.metadata.get("system_prompt")
+
+            if system_prompt and len(system_prompt) > MAX_SYSTEM_PROMPT_CHARS:
+                return _build_size_limit_verdict(
+                    field_name="system_prompt",
+                    actual_chars=len(system_prompt),
+                    max_chars=MAX_SYSTEM_PROMPT_CHARS,
+                    rule_id="input_size:system_prompt_too_long",
+                    context=context,
+                )
+
             normalized_text = _normalize_text(text)
             matched_rules, reasons, max_severity, match_details = _scan_patterns(
                 normalized_text,
