@@ -48,12 +48,12 @@ logger = logging.getLogger(__name__)
 
 def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
     resources = request.app.state.resources
-    llm_client = get_llm_client()
 
     return GatewayOrchestrator(
-        rule_inspector=RuleInspector(),
+        rule_inspector=resources.rule_inspector,
         llm_guard_inspector=resources.llm_guard_inspector,
-        llm_client=llm_client,
+        llm_client=get_llm_client(),
+        system_prompt=resources.system_prompt,
     )
 
 @app.get("/")

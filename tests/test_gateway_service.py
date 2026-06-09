@@ -4,6 +4,7 @@ from app.schemas.llm import LLMMetadata, LLMResponse
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
+from tests.conftest import FakeLLMGuardInspector
 
 
 def make_request(
@@ -57,8 +58,9 @@ class FakeLlmClient:
 def build_gateway(fake_llm_client: FakeLlmClient) -> GatewayOrchestrator:
     return GatewayOrchestrator(
         rule_inspector=RuleInspector(),
-        llm_guard_inspector=LLMGuardInspector(),
+        llm_guard_inspector=FakeLLMGuardInspector(),
         llm_client=fake_llm_client,
+        system_prompt="You are a test assistant.",
     )
 
 
