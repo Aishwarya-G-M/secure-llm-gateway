@@ -1,5 +1,7 @@
 import pytest
 from fastapi import Request
+from starlette.testclient import TestClient
+
 from app.clients.llm_protocol import LlmClientProtocol
 from app.main import app, get_gateway_inspector
 from app.gateway.orchestrator import GatewayOrchestrator
@@ -70,3 +72,8 @@ def override_app_dependencies(llm_client_override):
     app.dependency_overrides[get_gateway_inspector] = override_gateway_inspector
     yield
     app.dependency_overrides = original_overrides
+
+@pytest.fixture
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
