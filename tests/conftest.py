@@ -1,15 +1,15 @@
 import pytest
-from fastapi.testclient import TestClient
-
+from fastapi import Request
+from app.clients.llm_protocol import LlmClientProtocol
 from app.main import app, get_gateway_inspector
 from app.gateway.orchestrator import GatewayOrchestrator
-from app.schemas.llm import LLMMetadata, LLMResponse
+from app.schemas.llm import LLMMetadata, LLMResponse, LLMRequest
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
+from app.security.inspectors.base import BaseInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 
-
-class FakeLlmClient:
-    def generate(self, request):
+class FakeLlmClient(LlmClientProtocol):
+    def generate(self, request: LLMRequest) -> LLMResponse:
         return LLMResponse(
             content="Redis caching stores frequently accessed data in memory to speed up responses and reduce repeated database queries.",
             metadata=LLMMetadata(
@@ -24,8 +24,8 @@ class FakeLlmClient:
         )
 
 
-class FakeLLMGuardInspector:
-    def inspect_input(self, text, context=None):
+class FakeLLMGuardInspector(BaseInspector):
+    def inspect_input(self, text: str, context=None) -> SecurityVerdict:
         return SecurityVerdict(
             allowed=True,
             action=PolicyAction.ALLOW,
@@ -37,7 +37,7 @@ class FakeLLMGuardInspector:
             metadata={},
         )
 
-    def inspect_output(self, text, context=None):
+    def inspect_output(self, text: str, context=None) -> SecurityVerdict:
         return SecurityVerdict(
             allowed=True,
             action=PolicyAction.ALLOW,
@@ -59,19 +59,14 @@ def llm_client_override():
 def override_app_dependencies(llm_client_override):
     original_overrides = app.dependency_overrides.copy()
 
-    def override_gateway_inspector():
+    def override_gateway_inspector(request: Request):
         return GatewayOrchestrator(
             rule_inspector=RuleInspector(),
             llm_guard_inspector=FakeLLMGuardInspector(),
             llm_client=llm_client_override,
+            system_prompt="You are a test assistant.",
         )
 
     app.dependency_overrides[get_gateway_inspector] = override_gateway_inspector
     yield
     app.dependency_overrides = original_overrides
-
-
-@pytest.fixture
-def client():
-    with TestClient(app) as test_client:
-        yield test_client

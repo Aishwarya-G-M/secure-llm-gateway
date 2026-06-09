@@ -1,5 +1,7 @@
 from typing import Any
 
+from fastapi import Path
+
 from app.clients.llm_protocol import LlmClientProtocol
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 from app.exceptions.llm import LLMError
@@ -20,9 +22,7 @@ def _build_context(
     user_id: str | None = None,
     extra_metadata: dict[str, Any] | None = None,
 ) -> InspectionContext:
-    metadata = {
-        "system_prompt": request.system_prompt,
-    }
+    metadata = { }
 
     if extra_metadata:
         metadata.update(extra_metadata)
@@ -70,10 +70,12 @@ class GatewayOrchestrator:
         rule_inspector: BaseInspector,
         llm_guard_inspector: BaseInspector,
         llm_client: LlmClientProtocol,
+        system_prompt: str,
     ) -> None:
         self.rule_inspector = rule_inspector
         self.llm_guard_inspector = llm_guard_inspector
         self.llm_client = llm_client
+        self.system_prompt = system_prompt
 
     def process_input(
             self,
@@ -146,14 +148,12 @@ class GatewayOrchestrator:
             request_id: str | None = None,
             trace_id: str | None = None,
     ) -> GatewayResponse:
-        input_security_verdict = self.process_input(
-            prompt_request,
-            request_id=request_id,
-            trace_id=trace_id,
-        )
-
         try:
-            input_security_verdict = self.process_input(prompt_request)
+            input_security_verdict = self.process_input(
+                prompt_request,
+                request_id=request_id,
+                trace_id=trace_id,
+            )
 
             if input_security_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
                 return GatewayResponse(
@@ -164,7 +164,7 @@ class GatewayOrchestrator:
 
             llm_request = LLMRequest(
                 prompt=prompt_request.prompt,
-                system_prompt=prompt_request.system_prompt or "You are a helpful assistant.",
+                system_prompt=self.system_prompt,
             )
 
             llm_response = self.llm_client.generate(llm_request)

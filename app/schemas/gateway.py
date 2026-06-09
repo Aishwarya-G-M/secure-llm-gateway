@@ -4,7 +4,6 @@ from app.schemas.security_verdict import SecurityVerdict
 
 class GatewayRequest(BaseModel):
     prompt: str
-    system_prompt: str | None = None
 
 class GatewayResponse(BaseModel):
     input_verdict: SecurityVerdict

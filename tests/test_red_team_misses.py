@@ -27,6 +27,7 @@ def gateway():
         rule_inspector=RuleInspector(),
         llm_guard_inspector=LLMGuardInspector(),
         llm_client=FakeLlmClient(),
+        system_prompt="You are a test assistant.",
     )
 
 
@@ -92,7 +93,6 @@ RED_TEAM_MISSES = [
 def test_red_team_prompts_should_not_be_cleanly_allowed(gateway, case):
     request = GatewayRequest(
         prompt=case["prompt"],
-        system_prompt="You are a helpful assistant.",
     )
 
     response = gateway.process_chat_input(request)
