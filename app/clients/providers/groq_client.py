@@ -1,8 +1,19 @@
+import logging
 import os
 import time
 
-from dotenv import load_dotenv
+import pybreaker
+from groq import Groq
+from groq._exceptions import APIConnectionError, APIStatusError, APITimeoutError
 from groq.types.chat import ChatCompletionMessageParam
+from pybreaker import CircuitBreakerError
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from app.exceptions.llm import (
     LLMConfigurationError,
@@ -10,9 +21,17 @@ from app.exceptions.llm import (
     LLMTimeoutError,
 )
 from app.schemas.llm import LLMMetadata, LLMRequest, LLMResponse
-from groq import Groq, APITimeoutError, APIConnectionError, APIStatusError
 
-load_dotenv()
+logger = logging.getLogger(__name__)
+
+MAX_RETRY_ATTEMPTS = 3
+RETRY_MIN_WAIT_SECONDS = 1
+RETRY_MAX_WAIT_SECONDS = 8
+
+llm_circuit_breaker = pybreaker.CircuitBreaker(
+    fail_max=5,
+    reset_timeout=30,
+)
 
 
 class GroqLlmClient:
@@ -36,10 +55,11 @@ class GroqLlmClient:
         start = time.perf_counter()
 
         try:
-            chat_completion = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-            )
+            chat_completion = self._generate_with_retry(messages)
+        except CircuitBreakerError as e:
+            raise LLMProviderError(
+                "LLM provider circuit breaker is open. Too many recent failures."
+            ) from e
         except APITimeoutError as e:
             raise LLMTimeoutError("LLM provider request timed out.") from e
         except APIConnectionError as e:
@@ -65,4 +85,22 @@ class GroqLlmClient:
             input_tokens=getattr(usage, "prompt_tokens", None) if usage else None,
             output_tokens=getattr(usage, "completion_tokens", None) if usage else None,
             total_tokens=getattr(usage, "total_tokens", None) if usage else None,
+        )
+
+    @llm_circuit_breaker
+    @retry(
+        retry=retry_if_exception_type((APITimeoutError, APIConnectionError)),
+        stop=stop_after_attempt(MAX_RETRY_ATTEMPTS),
+        wait=wait_exponential(
+            multiplier=1,
+            min=RETRY_MIN_WAIT_SECONDS,
+            max=RETRY_MAX_WAIT_SECONDS,
+        ),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    def _generate_with_retry(self, messages):
+        return self.client.chat.completions.create(
+            model=self.model,
+            messages=messages,
         )

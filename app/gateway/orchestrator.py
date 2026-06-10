@@ -1,11 +1,10 @@
 from typing import Any
 
-from fastapi import Path
-
 from app.clients.llm_protocol import LlmClientProtocol
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 from app.exceptions.llm import LLMError
 from app.exceptions.policy import PolicyError
+from app.core.logging_setup import logger
 from app.models.inspection_context import InspectionContext
 from app.schemas.gateway import GatewayResponse, GatewayRequest
 from app.schemas.llm import LLMRequest
@@ -86,26 +85,54 @@ class GatewayOrchestrator:
         try:
             context = _build_context(request,route="/chat",request_id=request_id,trace_id=trace_id)
 
-            rule_verdict = self.rule_inspector.inspect_input(
-                request.prompt,
-                context=context,
-            )
+            try:
+                rule_verdict = self.rule_inspector.inspect_input(
+                    request.prompt,
+                    context=context,
+                )
+            except Exception as exc:
+                logger.error(
+                    "rule_inspector_failed",
+                    extra={
+                        "request_id": request_id,
+                        "trace_id": trace_id,
+                        "error": str(exc),
+                    },
+                )
+                raise GatewayInspectionError("Rule inspector failed") from exc
+
             if rule_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
                 return rule_verdict
 
-            llm_guard_verdict = self.llm_guard_inspector.inspect_input(
-                request.prompt,
-                context=context,
-            )
+            try:
+                llm_guard_verdict = self.llm_guard_inspector.inspect_input(
+                    request.prompt,
+                    context=context,
+                )
+            except Exception as exc:
+                logger.error(
+                    "llm_guard_inspector_failed",
+                    extra={
+                        "request_id": request_id,
+                        "trace_id": trace_id,
+                        "error": str(exc),
+                    },
+                )
+                raise GatewayInspectionError("LLM Guard inspector failed") from exc
+
             if llm_guard_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
                 return llm_guard_verdict
 
             return _merge_allow_verdicts(rule_verdict, llm_guard_verdict)
 
+        except GatewayInspectionError:
+            raise
         except PolicyError as exc:
             raise GatewayInspectionError("Failed to inspect gateway input") from exc
         except Exception as exc:
-            raise GatewayInspectionError("Unexpected error during gateway input inspection") from exc
+            raise GatewayInspectionError(
+                "Unexpected error during gateway input inspection"
+            ) from exc
 
     def process_llm_output(
             self,
@@ -117,17 +144,41 @@ class GatewayOrchestrator:
         try:
             context = _build_context(request,route="/chat",request_id=request_id,trace_id=trace_id)
 
-            rule_verdict = self.rule_inspector.inspect_output(
-                llm_output,
-                context=context,
-            )
+            try:
+                rule_verdict = self.rule_inspector.inspect_output(
+                    llm_output,
+                    context=context,
+                )
+            except Exception as exc:
+                logger.error(
+                    "rule_inspector_output_failed",
+                    extra={
+                        "request_id": request_id,
+                        "trace_id": trace_id,
+                        "error": str(exc),
+                    },
+                )
+                raise GatewayInspectionError("Rule inspector failed for output") from exc
+
             if rule_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
                 return rule_verdict
 
-            llm_guard_verdict = self.llm_guard_inspector.inspect_output(
-                llm_output,
-                context=context,
-            )
+            try:
+                llm_guard_verdict = self.llm_guard_inspector.inspect_output(
+                    llm_output,
+                    context=context,
+                )
+            except Exception as exc:
+                logger.error(
+                    "llm_guard_inspector_output_failed",
+                    extra={
+                        "request_id": request_id,
+                        "trace_id": trace_id,
+                        "error": str(exc),
+                    },
+                )
+                raise GatewayInspectionError("LLM Guard inspector failed for output") from exc
+
             if llm_guard_verdict.action in {
                 PolicyAction.BLOCK,
                 PolicyAction.REVIEW,
@@ -137,10 +188,14 @@ class GatewayOrchestrator:
 
             return _merge_allow_verdicts(rule_verdict, llm_guard_verdict)
 
+        except GatewayInspectionError:
+            raise
         except PolicyError as exc:
             raise GatewayInspectionError("Failed to inspect gateway output") from exc
         except Exception as exc:
-            raise GatewayInspectionError("Unexpected error during gateway output inspection") from exc
+            raise GatewayInspectionError(
+                "Unexpected error during gateway output inspection"
+            ) from exc
 
     def process_chat_input(
             self,
