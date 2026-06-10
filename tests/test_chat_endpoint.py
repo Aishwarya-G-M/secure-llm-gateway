@@ -162,12 +162,10 @@ def test_chat_allows_normal_input_and_returns_output(client, override_gateway):
 def test_chat_returns_504_on_llm_timeout(client, override_gateway):
     override_gateway(TimeoutLlmClient())
 
-    response = client.post(
-        "/chat",
-        json={"prompt": "Explain Redis caching"},
-    )
+    response = client.post("/chat", json={"prompt": "Explain Redis caching"})
 
     assert response.status_code == 504
+    assert response.json()["error_code"] == "llm_timeout"
     assert "timed out" in response.json()["detail"].lower()
 
 
@@ -180,6 +178,7 @@ def test_chat_returns_502_on_provider_error(client, override_gateway):
     )
 
     assert response.status_code == 502
+    assert response.json()["error_code"] == "llm_provider_error"
     assert "provider" in response.json()["detail"].lower()
 
 
@@ -192,4 +191,5 @@ def test_chat_returns_503_on_configuration_error(client, override_gateway):
     )
 
     assert response.status_code == 503
+    assert response.json()["error_code"] == "llm_configuration_error"
     assert "missing groq_api_key" in response.json()["detail"].lower()
