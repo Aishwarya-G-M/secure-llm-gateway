@@ -1,11 +1,12 @@
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+from app.core.metrics import gateway_metrics
 from app.exceptions.gateway import GatewayExecutionError, GatewayInspectionError
 from app.exceptions.llm import (
     LLMConfigurationError,
     LLMProviderError,
-    LLMTimeoutError,
+    LLMTimeoutError, LLMError,
 )
 from app.schemas.error import ErrorResponse
 
@@ -64,6 +65,12 @@ async def gateway_execution_error_handler(
             error_code="llm_provider_error",
             detail=str(cause),
         )
+
+    if isinstance(cause, LLMError):
+        gateway_metrics.record_llm_error()
+
+    if isinstance(cause, LLMConfigurationError):
+        ...
 
     return _error_response(
         request,

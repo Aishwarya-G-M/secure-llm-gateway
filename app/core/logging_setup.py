@@ -8,6 +8,7 @@ def get_logger(name: str) -> logging.Logger:
 
 
 logger = get_logger("app")
+audit_logger = get_logger("audit")
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:

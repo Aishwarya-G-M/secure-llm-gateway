@@ -79,3 +79,26 @@ def override_app_dependencies(llm_client_override):
 def client():
     with TestClient(app, headers={"X-API-Key": "key-abc123"}) as test_client:
         yield test_client
+
+class AlwaysBlockRuleInspector(BaseInspector):
+    def inspect_input(self, text, context=None):
+        return SecurityVerdict(
+            allowed=False,
+            action=PolicyAction.BLOCK,
+            reasons=["Prompt injection detected"],
+            matched_rules=["test:block"],
+            risk_score=9.0,
+            inspector_used="always_block_rule_inspector",
+            metadata={},
+        )
+
+    def inspect_output(self, text, context=None):
+        return SecurityVerdict(
+            allowed=True,
+            action=PolicyAction.ALLOW,
+            reasons=["ok"],
+            matched_rules=[],
+            risk_score=0.0,
+            inspector_used="always_block_rule_inspector",
+            metadata={},
+        )

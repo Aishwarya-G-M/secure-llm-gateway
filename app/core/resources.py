@@ -1,10 +1,11 @@
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
 from app.config.prompts import load_system_prompt, load_prompt_version
 from app.schemas.security_verdict import PolicyAction
 from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
-
+from app.core.metrics import GatewayMetrics, gateway_metrics
 
 @dataclass
 class AppResources:
@@ -37,4 +38,14 @@ def create_app_resources() -> AppResources:
         llm_guard_inspector=llm_guard_inspector,
         system_prompt=system_prompt,
         system_prompt_version=system_prompt_version,
+        metrics=gateway_metrics,
     )
+
+@dataclass
+class AppResources:
+    llm_guard_inspector: LLMGuardInspector
+    rule_inspector: RuleInspector
+    system_prompt: str
+    system_prompt_version: str
+    metrics: GatewayMetrics = field(default_factory=lambda: gateway_metrics)
+    started_at: float = field(default_factory=time.time)

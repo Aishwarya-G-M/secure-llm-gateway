@@ -2,21 +2,25 @@ import os
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request
+
+from app.core.audit import emit_audit_event
 from app.core.logging_setup import logger
 
 from app.clients.llm_client import get_llm_client
 from app.core.logging_setup import configure_logging
 from app.core.resources import create_app_resources
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
+from fastapi import Depends, HTTPException, Request, status
 
 from app.gateway.orchestrator import GatewayOrchestrator
-from app.middleware.rate_limit import RateLimitMiddleware
-from app.middleware.request_context import RequestContext
 from app.schemas.gateway import GatewayRequest, GatewayResponse
 from app.api.error_handlers import (
     gateway_execution_error_handler,
     gateway_inspection_error_handler,
 )
+from app.schemas.health import HealthResponse, InspectorStatus
+from app.schemas.security_verdict import PolicyAction
+
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
@@ -44,7 +48,7 @@ app.add_middleware(
             "window_seconds": int(os.getenv("CHAT_RATE_LIMIT_WINDOW_SECONDS", "60")),
         }
     },
-    excluded_paths={"/health"},
+    excluded_paths={"/health", "/metrics"},
 )
 app.add_middleware(ApiKeyMiddleware, excluded_paths={"/health"})
 app.add_middleware(RequestContext)
@@ -65,10 +69,41 @@ def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
 def read_root():
     return {"message": "API is running"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+@app.get("/health", response_model=HealthResponse)
+async def health_check(request: Request):
+    resources = request.app.state.resources
+    uptime = round(time.time() - resources.started_at, 2)
 
+    inspectors = []
+
+    try:
+        resources.rule_inspector.inspect_input("health check", context=None)
+        inspectors.append(InspectorStatus(name="rule_inspector", status="ok"))
+    except Exception:
+        inspectors.append(InspectorStatus(name="rule_inspector", status="degraded"))
+
+    try:
+        resources.llm_guard_inspector.inspect_input("health check", context=None)
+        inspectors.append(InspectorStatus(name="llm_guard_inspector", status="ok"))
+    except Exception:
+        inspectors.append(InspectorStatus(name="llm_guard_inspector", status="degraded"))
+
+    overall_status = (
+        "ok"
+        if all(i.status == "ok" for i in inspectors)
+        else "degraded"
+    )
+
+    return HealthResponse(
+        status=overall_status,
+        uptime_seconds=uptime,
+        system_prompt_version=resources.system_prompt_version,
+        inspectors=inspectors,
+    )
+
+@app.get("/metrics")
+async def metrics(request: Request):
+    return request.app.state.resources.metrics.snapshot()
 
 @app.post("/chat", response_model=GatewayResponse, response_model_exclude_none=True)
 async def chat(
@@ -77,12 +112,46 @@ async def chat(
     gateway: GatewayOrchestrator = Depends(get_gateway_inspector),
 ):
     started_at = time.perf_counter()
+    metrics = request.app.state.resources.metrics
+    api_key = getattr(request.state, "api_key", None)
 
     response = gateway.process_chat_input(
         gateway_request,
         request_id=request.state.request_id,
         trace_id=request.state.trace_id,
     )
+
+    final_action = (
+        response.output_verdict.action.value
+        if response.output_verdict
+        else response.input_verdict.action.value
+        if response.input_verdict
+        else "unknown"
+    )
+
+    metrics.record_request(final_action)
+
+    if response.input_verdict and response.input_verdict.action != PolicyAction.ALLOW:
+        emit_audit_event(
+            request_id=request.state.request_id,
+            trace_id=request.state.trace_id,
+            api_key=api_key,
+            route="/chat",
+            stage="input",
+            action=response.input_verdict.action,
+            verdict=response.input_verdict,
+        )
+
+    if response.output_verdict and response.output_verdict.action != PolicyAction.ALLOW:
+        emit_audit_event(
+            request_id=request.state.request_id,
+            trace_id=request.state.trace_id,
+            api_key=api_key,
+            route="/chat",
+            stage="output",
+            action=response.output_verdict.action,
+            verdict=response.output_verdict,
+        )
 
     latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
 
@@ -94,6 +163,7 @@ async def chat(
             "route": "/chat",
             "input_action": response.input_verdict.action.value if response.input_verdict else None,
             "output_action": response.output_verdict.action.value if response.output_verdict else None,
+            "final_action": final_action,
             "latency_ms": latency_ms,
         },
     )
