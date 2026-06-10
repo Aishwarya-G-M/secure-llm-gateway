@@ -1,3 +1,5 @@
+import os
+os.environ.setdefault("API_KEYS", "key-abc123,key-def456")
 import pytest
 from fastapi import Request
 from starlette.testclient import TestClient
@@ -75,5 +77,5 @@ def override_app_dependencies(llm_client_override):
 
 @pytest.fixture
 def client():
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"X-API-Key": "key-abc123"}) as test_client:
         yield test_client
