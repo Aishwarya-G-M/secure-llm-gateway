@@ -30,7 +30,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 configure_logging()
-app.add_middleware(RequestContext)
+from app.middleware.api_key_auth import ApiKeyMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_context import RequestContext
+
 app.add_middleware(
     RateLimitMiddleware,
     default_max_requests=int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "100")),
@@ -43,6 +46,8 @@ app.add_middleware(
     },
     excluded_paths={"/health"},
 )
+app.add_middleware(ApiKeyMiddleware, excluded_paths={"/health"})
+app.add_middleware(RequestContext)
 app.add_exception_handler(GatewayInspectionError, gateway_inspection_error_handler)
 app.add_exception_handler(GatewayExecutionError, gateway_execution_error_handler)
 

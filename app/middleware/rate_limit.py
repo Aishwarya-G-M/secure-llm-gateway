@@ -3,6 +3,9 @@ from collections import defaultdict, deque
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
 
+from app.schemas.error import ErrorResponse
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
@@ -29,9 +32,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         max_requests, window_seconds = limit_config
 
         client_ip = request.client.host if request.client else "unknown"
-        key = f"{client_ip}:{path}"
-        now = time.time()
+        api_key = getattr(request.state, "api_key", None)
+        identity = api_key if api_key else client_ip
+        key = f"{identity}:{path}"
 
+        now = time.time()
         bucket = self.requests[key]
 
         while bucket and now - bucket[0] > window_seconds:
@@ -40,12 +45,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if len(bucket) >= max_requests:
             return JSONResponse(
                 status_code=429,
-                content={
-                    "detail": "Rate limit exceeded",
-                    "error_code": "rate_limit_exceeded",
-                    "request_id": getattr(request.state, "request_id", None),
-                    "trace_id": getattr(request.state, "trace_id", None),
-                },
+                content=ErrorResponse(
+                    error_code="rate_limit_exceeded",
+                    detail="Rate limit exceeded",
+                    request_id=getattr(request.state, "request_id", None),
+                    trace_id=getattr(request.state, "trace_id", None),
+                ).model_dump(),
             )
 
         bucket.append(now)
