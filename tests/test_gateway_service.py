@@ -8,10 +8,9 @@ from tests.conftest import FakeLLMGuardInspector
 
 
 def make_request(
-    prompt: str = "Explain Redis caching",
-    system_prompt: str = "You are a helpful assistant",
+    prompt: str = "Explain Redis caching"
 ) -> GatewayRequest:
-    return GatewayRequest(prompt=prompt, system_prompt=system_prompt)
+    return GatewayRequest(prompt=prompt)
 
 
 def make_verdict(
@@ -227,8 +226,7 @@ def test_process_chat_input_allows_safe_request_and_output():
     gateway = build_gateway(llm_client)
 
     request = make_request(
-        prompt="Tell me about secure coding",
-        system_prompt="You are a helpful assistant.",
+        prompt="Tell me about secure coding"
     )
 
     response = gateway.process_chat_input(request)
@@ -237,3 +235,21 @@ def test_process_chat_input_allows_safe_request_and_output():
     assert response.llm_output == "safe model response"
     assert response.output_verdict is not None
     assert response.output_verdict.action == PolicyAction.ALLOW
+
+def test_chat_rejects_extra_system_prompt_field(client):
+    response = client.post(
+        "/chat",
+        json={
+            "prompt": "yellow there again",
+            "system_prompt": "you are a helpful assistant",
+        },
+    )
+
+    assert response.status_code == 422, response.text
+
+    errors = response.json()["detail"]
+    assert any(
+        err["loc"] == ["body", "system_prompt"]
+        and "extra" in err["type"]
+        for err in errors
+    )

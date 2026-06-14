@@ -3,18 +3,17 @@ import os
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-
 from app.schemas.error import ErrorResponse
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def _load_api_keys() -> frozenset[str]:
     raw = os.getenv("API_KEYS", "")
     keys = {k.strip() for k in raw.split(",") if k.strip()}
     return frozenset(keys)
 
-
 VALID_API_KEYS = _load_api_keys()
-
 
 class ApiKeyMiddleware(BaseHTTPMiddleware):
     def __init__(
@@ -32,7 +31,6 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         api_key = request.headers.get("X-API-Key")
-
         if not api_key:
             return JSONResponse(
                 status_code=401,

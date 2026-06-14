@@ -10,8 +10,6 @@ from app.core.resources import create_app_resources
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 
 from app.gateway.orchestrator import GatewayOrchestrator
-from app.middleware.rate_limit import RateLimitMiddleware
-from app.middleware.request_context import RequestContext
 from app.schemas.gateway import GatewayRequest, GatewayResponse
 from app.api.error_handlers import (
     gateway_execution_error_handler,
@@ -44,9 +42,9 @@ app.add_middleware(
             "window_seconds": int(os.getenv("CHAT_RATE_LIMIT_WINDOW_SECONDS", "60")),
         }
     },
-    excluded_paths={"/health"},
+    excluded_paths={"/health","/metrics", "/docs", "/redoc", "/openapi.json"},
 )
-app.add_middleware(ApiKeyMiddleware, excluded_paths={"/health"})
+app.add_middleware(ApiKeyMiddleware, excluded_paths={"/health","/metrics", "/docs", "/redoc", "/openapi.json"})
 app.add_middleware(RequestContext)
 app.add_exception_handler(GatewayInspectionError, gateway_inspection_error_handler)
 app.add_exception_handler(GatewayExecutionError, gateway_execution_error_handler)
@@ -69,6 +67,9 @@ def read_root():
 async def health_check():
     return {"status": "ok"}
 
+@app.get("/metrics")
+async def metrics(request: Request):
+    return request.app.state.resources.metrics.snapshot()
 
 @app.post("/chat", response_model=GatewayResponse, response_model_exclude_none=True)
 async def chat(
@@ -76,6 +77,7 @@ async def chat(
     gateway_request: GatewayRequest,
     gateway: GatewayOrchestrator = Depends(get_gateway_inspector),
 ):
+    request_metrics = request.app.state.resources.metrics
     started_at = time.perf_counter()
 
     response = gateway.process_chat_input(
@@ -83,6 +85,16 @@ async def chat(
         request_id=request.state.request_id,
         trace_id=request.state.trace_id,
     )
+
+    final_action = (
+        response.output_verdict.action.value
+        if response.output_verdict
+        else response.input_verdict.action.value
+        if response.input_verdict
+        else "unknown"
+    )
+
+    request_metrics.record_request(final_action)
 
     latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
 
@@ -94,6 +106,7 @@ async def chat(
             "route": "/chat",
             "input_action": response.input_verdict.action.value if response.input_verdict else None,
             "output_action": response.output_verdict.action.value if response.output_verdict else None,
+            "final_action": final_action,
             "latency_ms": latency_ms,
         },
     )
