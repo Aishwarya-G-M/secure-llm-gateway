@@ -6,7 +6,6 @@ from app.core.logging_setup import logger
 
 from app.clients.llm_client import get_llm_client
 from app.core.logging_setup import configure_logging
-from app.core.metrics import gateway_metrics
 from app.core.resources import create_app_resources
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 
@@ -43,9 +42,9 @@ app.add_middleware(
             "window_seconds": int(os.getenv("CHAT_RATE_LIMIT_WINDOW_SECONDS", "60")),
         }
     },
-    excluded_paths={"/health","/metrics"},
+    excluded_paths={"/health","/metrics", "/docs", "/redoc", "/openapi.json"},
 )
-app.add_middleware(ApiKeyMiddleware, excluded_paths={"/health","/metrics"})
+app.add_middleware(ApiKeyMiddleware, excluded_paths={"/health","/metrics", "/docs", "/redoc", "/openapi.json"})
 app.add_middleware(RequestContext)
 app.add_exception_handler(GatewayInspectionError, gateway_inspection_error_handler)
 app.add_exception_handler(GatewayExecutionError, gateway_execution_error_handler)
