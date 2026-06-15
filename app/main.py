@@ -1,7 +1,9 @@
 import os
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, Request
+from fastapi import FastAPI, Depends, Request, APIRouter
+
+from app.config.prompts import load_prompt_version
 from app.core.logging_setup import logger
 
 from app.clients.llm_client import get_llm_client
@@ -19,6 +21,7 @@ from app.api.error_handlers import (
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     application.state.resources = create_app_resources()
+    application.state.start_time = time.time()
     yield
 
 app = FastAPI(
@@ -27,6 +30,7 @@ app = FastAPI(
     description="A secure LLM gateway for “LLM hacking” defense: inspecting, testing, and protecting AI interactions end‑to‑end.",
     lifespan=lifespan,
 )
+ops_router = APIRouter(tags=["ops"])
 configure_logging()
 from app.middleware.api_key_auth import ApiKeyMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -49,6 +53,9 @@ app.add_middleware(RequestContext)
 app.add_exception_handler(GatewayInspectionError, gateway_inspection_error_handler)
 app.add_exception_handler(GatewayExecutionError, gateway_execution_error_handler)
 
+router = APIRouter()
+SYSTEM_PROMPT_VERSION = "v1"
+
 def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
     resources = request.app.state.resources
 
@@ -63,11 +70,18 @@ def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
 def read_root():
     return {"message": "API is running"}
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+@ops_router.get("/health")
+def health(request: Request):
+    uptime_seconds = int(time.time() - request.app.state.start_time)
+    return {
+        "status": "ok",
+        "uptime_seconds": uptime_seconds,
+        "version": request.app.version,
+        "system_prompt_version": load_prompt_version("chat"),
+        "inspector": {"status": "ok"},
+    }
 
-@app.get("/metrics")
+@ops_router.get("/metrics")
 async def metrics(request: Request):
     return request.app.state.resources.metrics.snapshot()
 
@@ -113,3 +127,4 @@ async def chat(
 
     return response
 
+app.include_router(ops_router)

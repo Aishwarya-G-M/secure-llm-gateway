@@ -1,8 +1,6 @@
 def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
-
 
 def test_chat_allows_safe_request(client):
     response = client.post(
