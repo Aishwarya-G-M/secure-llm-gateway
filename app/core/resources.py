@@ -17,8 +17,8 @@ class AppResources:
 
 
 def create_app_resources() -> AppResources:
-    system_prompt = load_system_prompt(route="chat")
-    system_prompt_version = load_prompt_version(route="chat")
+    system_prompt = load_system_prompt(prompt_name="chat")
+    system_prompt_version = load_prompt_version(prompt_name="chat")
     rule_inspector = RuleInspector()
     llm_guard_inspector = LLMGuardInspector(
         threshold=0.5,
