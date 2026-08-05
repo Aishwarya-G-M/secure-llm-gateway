@@ -1,6 +1,5 @@
 from app.exceptions.base import AppError
 
-
 class PolicyError(AppError):
     pass
 

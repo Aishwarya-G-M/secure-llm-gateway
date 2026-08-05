@@ -2,7 +2,6 @@ from typing import Any
 
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 
-
 def build_allow_verdict(
     inspector_used: str,
     risk_score: float = 1.0,

@@ -1,6 +1,5 @@
 from app.exceptions.base import AppError
 
-
 class LLMError(AppError):
     """Base exception for all LLM-related failures."""
     pass

@@ -5,7 +5,6 @@ import yaml
 
 PROMPTS_PATH = Path(__file__).resolve().parent / "prompts.yaml"
 
-
 def load_prompt_config(prompt_name: str = "chat") -> dict[str, Any]:
     with PROMPTS_PATH.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
