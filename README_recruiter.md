@@ -6,6 +6,12 @@ A FastAPI-based secure gateway for LLM applications that inspects prompts and mo
 
 This project is designed to show practical engineering around LLM security rather than just model usage. It demonstrates how to build a gateway layer that treats prompts and responses as an attack surface, which is directly relevant to AI security, trust and safety, backend engineering, and platform roles.[1]
 
+## Engineering maturity
+
+This project is intentionally versioned as an iterative case study in building LLM applications with increasing engineering discipline. Early iterations validated ideas quickly; later iterations emphasise modular architecture, security policy enforcement, inspection layers, and repeatable security testing.
+
+The focus is not to claim that AI technical debt can be eliminated, but to make it visible, measurable, and continuously remediated through architecture, documentation, and testing.
+
 ## Highlights
 
 - Built as a FastAPI-based proxy for securing LLM interactions in a realistic application flow.

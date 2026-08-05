@@ -1,6 +1,5 @@
 from app.exceptions.base import AppError
 
-
 class GatewayError(AppError):
     pass
 

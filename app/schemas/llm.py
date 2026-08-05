@@ -2,7 +2,6 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
 class LLMMetadata(BaseModel):
     request_id: Optional[str] = Field(default=None)
     provider: str

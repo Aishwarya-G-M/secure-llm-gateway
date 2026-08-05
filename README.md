@@ -1,12 +1,93 @@
 # Secure LLM Gateway — Engineering README
 
 Secure LLM Gateway is a FastAPI-based proxy that inspects prompts and model responses, applies security policies, and blocks or sanitizes unsafe interactions to reduce OWASP-style LLM risks.
+- This repository also serves as a case study in iterative LLM security engineering: evolving a rapid prototype into a more modular, testable, and security-first gateway while making AI technical debt explicit and progressively remediating it.
+- Later iterations move toward specification-driven development: defining security requirements, threat assumptions, acceptance criteria, and architectural boundaries before implementation.
+
 
 ## Overview
 
 The service is designed as a control layer in front of an LLM client rather than a thin pass-through API. The central idea is that both user input and model output are part of the attack surface, so the gateway must validate, inspect, and enforce policy before returning a response to the caller.
 
 This document focuses on architecture evolution, design choices, and the reasoning behind the current shape of the system. Mermaid diagrams are used because GitHub Markdown supports Mermaid code blocks directly, which makes architecture diagrams readable and maintainable inside repository documentation.[1][2]
+
+## From Rapid Prototyping to Security-First LLM Engineering
+
+This project is an evolving secure LLM gateway and playground, built to explore how LLM applications can move from fast experimentation toward controlled, testable, and security-conscious engineering.
+
+Early iterations prioritised validating ideas quickly. As the project evolved, the focus shifted toward making security controls, architectural boundaries, testing, and known limitations explicit. The repository therefore documents not only *what* was built, but also how engineering decisions mature as an LLM application moves beyond a prototype.
+
+The goal is not to claim that AI technical debt can be fully eliminated. Instead, this project treats it as something that should be intentional, visible, and continuously remediated.
+
+### Engineering principles
+
+- **Security is a design constraint:** Security controls should sit at the gateway boundary, rather than being added only after an LLM feature is complete.
+- **Modularity enables remediation:** Gateway orchestration, policy decisions, request inspection, logging, API handling, and configuration are separated so that controls can evolve without rewriting the application.
+- **Prompts and policies are application logic:** System behaviour, safety rules, and input handling require versioning, documentation, testing, and review.
+- **Adversarial testing is a development practice:** Prompt-injection attempts, unsafe inputs, and known red-team misses should become repeatable regression tests.
+- **Documentation preserves intent:** Architecture documentation and version history make trade-offs, assumptions, and future remediation work visible.
+
+### AI technical-debt lens
+The following table was taken as a reference to keep in mind the progress of the case study/project from a AI tech debt perspective.
+
+| Debt area | Risk in an LLM application | How this project addresses it |
+|---|---|---|
+| **Data debt** | Unsafe, untrusted, or sensitive input can affect model behaviour or expose information | Treat external input as untrusted, validate requests at the gateway boundary, and avoid placing secrets or sensitive data in prompts and logs |
+| **Model debt** | Provider, model, or configuration changes can silently alter behaviour | Keep configuration and application changes versioned; use tests and metrics to establish behavioural expectations before accepting changes |
+| **Prompt debt** | Hard-coded or undocumented prompts can be vulnerable to injection, override attempts, and information leakage | Centralise and document safety-relevant logic, validate inputs, and test prompt-injection and rule-bypass scenarios |
+| **Organisational debt** | Security work becomes inconsistent when architecture, ownership, and decisions are undocumented | Use modular design, ADRs, test suites, and explicit security documentation to make decisions reviewable and easier to improve |
+
+### How this project applies the AI technical-debt model
+
+This project uses AI technical debt as a practical engineering lens rather than a purely theoretical checklist.
+
+| Video concept | Evidence or direction in this project | Maturity status |
+|---|---|---|
+| **Data debt** | Requests are treated as untrusted input at the gateway boundary. Sensitive information should not be embedded in prompts, logs, or test fixtures. | In progress — add data provenance, PII handling, and production drift-monitoring strategy |
+| **Model debt** | Application code, configuration, tests, and documentation are versioned. Metrics and regression tests create a basis for detecting behavioural changes. | In progress — add model/configuration release records, evaluation baselines, and tested rollback procedures |
+| **Prompt debt** | Security policy and inspection are separated from API and gateway orchestration. Prompt-injection and rule-bypass scenarios can be captured as regression tests. | Implemented foundation — continue expanding adversarial test coverage and prompt documentation |
+| **Organisational debt** | ADRs, modular design, Docker-based reproducibility, tests, and documentation make engineering decisions easier to review and revise. | In progress — formalise ownership, threat-model review, release criteria, and incident-response practices |
+| **Testing and red teaming** | Dedicated tests cover gateway behaviour, inspection components, metrics, middleware, smoke scenarios, and known red-team misses. | Implemented foundation — continuously add new attack patterns and regression cases |
+| **Evaluation and feedback** | Test failures, red-team findings, and observed metrics should feed back into policies, requirements, and architecture decisions. | Ongoing — define explicit evaluation datasets and operational success metrics |
+
+### Development lifecycle
+
+The project follows an iterative LLM application lifecycle:
+
+**Requirements → Threat Modelling → Architecture → Implementation → Security Testing → Deployment → Evaluation → Feedback**
+
+The feedback loop is essential: a failed test, a red-team bypass, a new injection technique, or a degraded operational metric is not treated as an isolated bug. It becomes an input for refining requirements, policies, test cases, and architectural controls.
+
+### Evidence in the repository
+
+The repository is structured to support this approach:
+
+- A dedicated gateway layer separates LLM interaction from API and application concerns.
+- Security concerns are isolated through policy, logging, pattern, and inspector components.
+- The test suite covers gateway behaviour, rules-based inspection, LLM Guard inspection, metrics, middleware, smoke tests, and documented red-team misses.
+- Architecture Decision Records (ADRs) provide a place to capture significant design decisions and their trade-offs.
+- Docker and Compose configuration support reproducible local execution.
+
+### What this project does not claim
+
+This is an educational and evolving security project, not a claim of complete protection against all LLM threats. Guardrails reduce risk; they do not guarantee that every jailbreak, indirect prompt injection, unsafe model output, or provider-side failure will be detected.
+
+In particular:
+
+- Prompt-injection tests are regression controls, not proof of complete prompt-injection prevention.
+- Adversarial test cases are not the same as production data-drift monitoring.
+- Version control supports traceability, but rollback requires a documented and tested deployment procedure.
+- Security controls require continuous evaluation as models, providers, prompts, and attack techniques change.
+
+### Next maturity steps
+
+- [ ] Version prompt and policy configurations independently from application releases
+- [ ] Define a tested rollback procedure for model and configuration changes
+- [ ] Add production-oriented telemetry for latency, blocked requests, inspection outcomes, and policy failures
+- [ ] Establish evaluation baselines for benign, adversarial, and out-of-context requests
+- [ ] Document threat models, trust boundaries, and residual risks for each gateway capability
+- [ ] Add CI checks that run security regression tests before merging changes
+
 
 ## Current endpoint shape
 
