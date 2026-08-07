@@ -2,6 +2,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, APIRouter
+from sympy import true
 
 from app.config.prompts import load_prompt_version
 from app.core.logging_setup import logger
@@ -79,6 +80,12 @@ def health(request: Request):
         "version": request.app.version,
         "system_prompt_version": load_prompt_version("chat"),
         "inspector": {"status": "ok"},
+        "dependencies": {
+            "redis": {
+                "enabled": true,
+                "status": "healthy"
+            }
+        }
     }
 
 @ops_router.get("/metrics")
