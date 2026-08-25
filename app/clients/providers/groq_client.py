@@ -43,7 +43,7 @@ class GroqLlmClient:
             )
 
         self.client = Groq(api_key=api_key)
-        self.model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+        self.model = os.getenv('GROQ_MODEL')
         self.provider = "groq"
 
     def generate(self, request: LLMRequest) -> LLMResponse:
