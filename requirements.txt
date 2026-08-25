@@ -14,3 +14,4 @@ sentence-transformers
 starlette
 tenacity
 pybreaker
+redis
