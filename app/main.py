@@ -2,13 +2,13 @@ import os
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, APIRouter
-from sympy import true
 
 from app.config.prompts import load_prompt_version
 from app.core.logging_setup import logger
 
 from app.clients.llm_client import get_llm_client
 from app.core.logging_setup import configure_logging
+from app.core.redis import initialise_redis, close_redis
 from app.core.resources import create_app_resources
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 
@@ -21,13 +21,37 @@ from app.api.error_handlers import (
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    redis_enabled = os.getenv("REDIS_ENABLED", "false").lower() == "true"
     application.state.resources = create_app_resources()
     application.state.start_time = time.time()
-    yield
+    application.state.redis_enabled = redis_enabled
+    application.state.redis_healthy = False
+
+    if redis_enabled:
+        redis_url = os.getenv("REDIS_URL")
+
+        if not redis_enabled:
+            raise RuntimeError("REDIS_URL must be configured when REDIS_ENABLED=true")
+
+        await initialise_redis(
+            redis_url=redis_url,
+            connect_timeout=float(
+                os.getenv("REDIS_CONNECT_TIMEOUT_SECONDS", "1.0")
+            ),
+            socket_timeout=float(
+                os.getenv("REDIS_SOCKET_TIMEOUT_SECONDS", "1.0")
+            ),
+        )
+
+    try:
+        yield
+    finally:
+        if redis_enabled:
+            await close_redis()
 
 app = FastAPI(
     title="Secure LLM Gateway",
-    version="0.5.0",
+    version="0.6.0",
     description="A secure LLM gateway for “LLM hacking” defense: inspecting, testing, and protecting AI interactions end‑to‑end.",
     lifespan=lifespan,
 )
@@ -80,12 +104,6 @@ def health(request: Request):
         "version": request.app.version,
         "system_prompt_version": load_prompt_version("chat"),
         "inspector": {"status": "ok"},
-        "dependencies": {
-            "redis": {
-                "enabled": true,
-                "status": "healthy"
-            }
-        }
     }
 
 @ops_router.get("/metrics")
