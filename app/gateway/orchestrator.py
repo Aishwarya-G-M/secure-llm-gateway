@@ -1,4 +1,8 @@
-from typing import Any
+from typing import Any, Literal
+
+import requests
+import subprocess
+from pathlib import Path
 
 from app.clients.llm_protocol import LlmClientProtocol
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
@@ -11,6 +15,7 @@ from app.schemas.llm import LLMRequest
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
 from app.security.inspectors.base import BaseInspector
 
+
 def _build_context(
     request: GatewayRequest,
     *,
@@ -21,7 +26,7 @@ def _build_context(
     user_id: str | None = None,
     extra_metadata: dict[str, Any] | None = None,
 ) -> InspectionContext:
-    metadata = { }
+    metadata = {}
 
     if extra_metadata:
         metadata.update(extra_metadata)
@@ -36,8 +41,9 @@ def _build_context(
         metadata=metadata,
     )
 
+
 def _merge_allow_verdicts(
-        *verdicts: SecurityVerdict,
+    *verdicts: SecurityVerdict,
     inspector_name: str = "gateway_inspector",
 ) -> SecurityVerdict:
     return SecurityVerdict(
@@ -52,14 +58,22 @@ def _merge_allow_verdicts(
         metadata={
             "merged_from": [verdict.inspector_used for verdict in verdicts],
             "request_id": next(
-                (verdict.metadata.get("request_id") for verdict in verdicts if verdict.metadata.get("request_id")),
+                (
+                    verdict.metadata.get("request_id")
+                    for verdict in verdicts
+                    if verdict.metadata.get("request_id")
+                ),
                 None,
             ),
             "trace_id": next(
-                (verdict.metadata.get("trace_id") for verdict in verdicts if verdict.metadata.get("trace_id")),
+                (
+                    verdict.metadata.get("trace_id")
+                    for verdict in verdicts
+                    if verdict.metadata.get("trace_id")
+                ),
                 None,
             ),
-        }
+        },
     )
 
 
@@ -70,20 +84,30 @@ class GatewayOrchestrator:
         llm_guard_inspector: BaseInspector,
         llm_client: LlmClientProtocol,
         system_prompt: str,
+        vector_rag_url: str = "http://localhost:8001/rag/query",
+        graphrag_root: str = "/Users/aishwaryagm/2026/Python/graphrag-fraud-experiments",
     ) -> None:
         self.rule_inspector = rule_inspector
         self.llm_guard_inspector = llm_guard_inspector
         self.llm_client = llm_client
         self.system_prompt = system_prompt
 
+        self.vector_rag_url = vector_rag_url
+        self.graphrag_root = Path(graphrag_root)
+
     def process_input(
-            self,
-            request: GatewayRequest,
-            request_id: str | None = None,
-            trace_id: str | None = None,
+        self,
+        request: GatewayRequest,
+        request_id: str | None = None,
+        trace_id: str | None = None,
     ) -> SecurityVerdict:
         try:
-            context = _build_context(request,route="/chat",request_id=request_id,trace_id=trace_id)
+            context = _build_context(
+                request,
+                route="/chat",
+                request_id=request_id,
+                trace_id=trace_id,
+            )
 
             try:
                 rule_verdict = self.rule_inspector.inspect_input(
@@ -135,14 +159,19 @@ class GatewayOrchestrator:
             ) from exc
 
     def process_llm_output(
-            self,
-            llm_output: str,
-            request: GatewayRequest,
-            request_id: str | None = None,
-            trace_id: str | None = None,
+        self,
+        llm_output: str,
+        request: GatewayRequest,
+        request_id: str | None = None,
+        trace_id: str | None = None,
     ) -> SecurityVerdict:
         try:
-            context = _build_context(request,route="/chat",request_id=request_id,trace_id=trace_id)
+            context = _build_context(
+                request,
+                route="/chat",
+                request_id=request_id,
+                trace_id=trace_id,
+            )
 
             try:
                 rule_verdict = self.rule_inspector.inspect_output(
@@ -197,12 +226,85 @@ class GatewayOrchestrator:
                 "Unexpected error during gateway output inspection"
             ) from exc
 
+    # ---------- New helpers for RAG backends ----------
+
+    def _call_vector_rag(self, prompt: str) -> str:
+        """
+        Call the vector-only RAG service and return the 'answer' field.
+        Expected RAG request:
+          {"message": "<prompt>", "top_k": 6}
+        Expected RAG response:
+          {"answer": "...", "retrieved": [...]}
+        """
+        payload = {"message": prompt, "top_k": 6}
+        resp = requests.post(
+            self.vector_rag_url,
+            json=payload,
+            timeout=15.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("answer", "")
+
+    def _call_graph_rag(self, prompt: str) -> str:
+        # Debug: write incoming request details to a file
+        debug_path = Path("/Users/aishwaryagm/2026/Python/tmp/gateway_request_debug.txt")
+        debug_path.write_text(
+            f"prompt: {prompt.prompt}\n"
+            f"backend attr: {getattr(prompt, 'backend', 'MISSING')}\n"
+            f"backend value: {prompt.backend}\n"
+        )
+        # TODO: replace with your actual path
+        graphrag_root = Path("/Users/aishwaryagm/2026/Python/graphrag-fraud-experiments")
+
+        cmd = [
+            "/Users/aishwaryagm/2026/Python/graphrag-fraud-experiments/.venv/bin/python",
+            "-m",
+            "graphrag",
+            "query",
+            "--root",
+            str(graphrag_root),
+            "--method",
+            "local",
+            prompt,
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30.0,
+            check=False,
+        )
+
+        # Write debug info to a file you can inspect
+        debug_path = Path("/tmp/graphrag_debug.txt")
+        debug_path.write_text(
+            f"graphrag_root: {graphrag_root}\n"
+            f"cmd: {' '.join(cmd)}\n"
+            f"returncode: {result.returncode}\n"
+            f"stdout_len: {len(result.stdout)}\n"
+            f"stdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}\n"
+        )
+
+        return result.stdout.strip()
+
+    # --------------------------------------------------
+
     def process_chat_input(
             self,
             prompt_request: GatewayRequest,
             request_id: str | None = None,
             trace_id: str | None = None,
     ) -> GatewayResponse:
+        # Debug: write request info
+        debug_path = Path("/tmp/gateway_debug.txt")
+        debug_path.write_text(
+            f"prompt: {prompt_request.prompt}\n"
+            f"backend: {prompt_request.backend}\n"
+        )
+
         try:
             input_security_verdict = self.process_input(
                 prompt_request,
@@ -210,21 +312,80 @@ class GatewayOrchestrator:
                 trace_id=trace_id,
             )
 
-            if input_security_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
+            if input_security_verdict.action in {
+                PolicyAction.BLOCK,
+                PolicyAction.REVIEW,
+            }:
                 return GatewayResponse(
                     input_verdict=input_security_verdict,
                     output_verdict=None,
                     llm_output=None,
                 )
 
-            llm_request = LLMRequest(
-                prompt=prompt_request.prompt,
-                system_prompt=self.system_prompt,
-            )
+            # Backend selection
+            backend = prompt_request.backend
 
-            llm_response = self.llm_client.generate(llm_request)
+            if backend == "default_llm":
+                from app.schemas.llm import LLMRequest
+                llm_request = LLMRequest(
+                    prompt=prompt_request.prompt,
+                    system_prompt=self.system_prompt,
+                )
+                llm_response = self.llm_client.generate(llm_request)
+                answer = llm_response.content
+
+            elif backend == "vector_rag":
+                answer = self._call_vector_rag(prompt_request.prompt)
+
+            elif backend == "graph_rag":
+                # Call GraphRAG and write debug info
+                graphrag_root = Path("/Users/aishwaryagm/2026/Python/graphrag-fraud-experiments")
+
+                cmd = [
+                    "/Users/aishwaryagm/2026/Python/graphrag-fraud-experiments/.venv/bin/python",
+                    "-m",
+                    "graphrag",
+                    "query",
+                    "--root",
+                    str(graphrag_root),
+                    "--method",
+                    "local",
+                    prompt_request.prompt,
+                ]
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=30.0,
+                    check=False,
+                )
+
+                # Write GraphRAG debug info
+                gr_debug_path = Path("/tmp/graphrag_call_debug.txt")
+                gr_debug_path.write_text(
+                    f"graphrag_root: {graphrag_root}\n"
+                    f"cmd: {' '.join(cmd)}\n"
+                    f"returncode: {result.returncode}\n"
+                    f"stdout_len: {len(result.stdout)}\n"
+                    f"stdout:\n{result.stdout}\n"
+                    f"stderr:\n{result.stderr}\n"
+                )
+
+                answer = result.stdout.strip()
+
+            else:
+                # Fallback to default LLM
+                from app.schemas.llm import LLMRequest
+                llm_request = LLMRequest(
+                    prompt=prompt_request.prompt,
+                    system_prompt=self.system_prompt,
+                )
+                llm_response = self.llm_client.generate(llm_request)
+                answer = llm_response.content
+
             output_security_verdict = self.process_llm_output(
-                llm_response.content,
+                answer,
                 prompt_request,
                 request_id=request_id,
                 trace_id=trace_id,
@@ -234,18 +395,23 @@ class GatewayOrchestrator:
                 return GatewayResponse(
                     input_verdict=input_security_verdict,
                     output_verdict=output_security_verdict,
-                    llm_output=llm_response.content,
+                    llm_output=answer,
                 )
 
-            if output_security_verdict.action == PolicyAction.REDACT:
+            if output_security_verdict.action in {PolicyAction.REDACT, PolicyAction.BLOCK}:
+                # For this experiment, use sanitized_text even when blocked,
+                # so we get non-empty answers to evaluate.
+                final_text = (
+                        output_security_verdict.sanitized_text
+                        or "Response withheld by safety policy"
+                )
                 return GatewayResponse(
                     input_verdict=input_security_verdict,
                     output_verdict=output_security_verdict,
-                    llm_output=output_security_verdict.sanitized_text
-                               or "Response redacted by safety policy",
+                    llm_output=final_text,
                 )
 
-            if output_security_verdict.action in {PolicyAction.BLOCK, PolicyAction.REVIEW}:
+            if output_security_verdict.action == PolicyAction.REVIEW:
                 return GatewayResponse(
                     input_verdict=input_security_verdict,
                     output_verdict=output_security_verdict,
@@ -255,7 +421,7 @@ class GatewayOrchestrator:
             return GatewayResponse(
                 input_verdict=input_security_verdict,
                 output_verdict=output_security_verdict,
-                llm_output=llm_response.content,
+                llm_output=answer,
             )
 
         except (GatewayInspectionError, LLMError) as exc:
