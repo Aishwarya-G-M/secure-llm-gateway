@@ -1,0 +1,10 @@
+backends:
+  vector_rag:
+    base_url: http://127.0.0.1:8001
+    endpoint: /rag/query
+    timeout_seconds: 30
+
+  graphrag:
+    base_url: http://127.0.0.1:8686
+    endpoint: /query
+    timeout_seconds: 60

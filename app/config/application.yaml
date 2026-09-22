@@ -1,0 +1,9 @@
+gateway:
+  host: 127.0.0.1
+  port: 8000
+
+routing:
+  default_backend: vector_rag
+  allowed_backends:
+    - vector_rag
+    - graphrag
