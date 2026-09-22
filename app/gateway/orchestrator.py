@@ -65,16 +65,20 @@ def _merge_allow_verdicts(
 
 class GatewayOrchestrator:
     def __init__(
-        self,
-        rule_inspector: BaseInspector,
-        llm_guard_inspector: BaseInspector,
-        llm_client: LlmClientProtocol,
-        system_prompt: str,
+            self,
+            rule_inspector: BaseInspector,
+            llm_guard_inspector: BaseInspector,
+            llm_client: LlmClientProtocol,
+            system_prompt: str,
+            simple_rag_client=None,
+            graphrag_client=None,
     ) -> None:
         self.rule_inspector = rule_inspector
         self.llm_guard_inspector = llm_guard_inspector
         self.llm_client = llm_client
         self.system_prompt = system_prompt
+        self.simple_rag_client = simple_rag_client
+        self.graphrag_client = graphrag_client
 
     def process_input(
             self,
