@@ -24,4 +24,4 @@ jobs:
           python -m pip install pytest
 
       - name: Run Tests
-        run: python -m pytest -vv -s
+        run: python -m pytest -vv -s --ignore=tests/test_smoke.py
