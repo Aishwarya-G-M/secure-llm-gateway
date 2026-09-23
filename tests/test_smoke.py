@@ -10,6 +10,10 @@ def test_chat_allows_safe_request(client):
         },
     )
 
+    print("status_code:", response.status_code)
+    print("response_body:", response.text)
+    print("response_headers:", dict(response.headers))
+
     assert response.status_code == 200
     body = response.json()
     assert "input_verdict" in body
