@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from app.clients.llm_protocol import LlmClientProtocol
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
@@ -70,15 +70,13 @@ class GatewayOrchestrator:
             llm_guard_inspector: BaseInspector,
             llm_client: LlmClientProtocol,
             system_prompt: str,
-            simple_rag_client=None,
-            graphrag_client=None,
+            simple_rag_client:Optional[object] = None,
     ) -> None:
         self.rule_inspector = rule_inspector
         self.llm_guard_inspector = llm_guard_inspector
         self.llm_client = llm_client
         self.system_prompt = system_prompt
         self.simple_rag_client = simple_rag_client
-        self.graphrag_client = graphrag_client
 
     def process_input(
             self,

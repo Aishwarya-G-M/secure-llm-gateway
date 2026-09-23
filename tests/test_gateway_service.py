@@ -1,16 +1,35 @@
 from app.gateway.orchestrator import GatewayOrchestrator
+from app.schemas.retrieval_result import RetrievalResult
 from app.schemas.gateway import GatewayRequest
 from app.schemas.llm import LLMMetadata, LLMResponse
 from app.schemas.security_verdict import PolicyAction, SecurityVerdict
-from app.security.inspectors.llm_guard_inspector import LLMGuardInspector
 from app.security.inspectors.rule_inspector import RuleInspector
 from tests.conftest import FakeLLMGuardInspector
 
+class FakeSimpleRagClient:
+    def __init__(self):
+        self.message = None
+        self.trace_id = None
+
+    def query(self, message, *, trace_id=None):
+        self.message = message
+        self.trace_id = trace_id
+
+        return RetrievalResult(
+            answer="This is a safe RAG answer.",
+            sources=[],
+            provider="simple-rag-test",
+            trace_id=trace_id,
+        )
 
 def make_request(
-    prompt: str = "Explain Redis caching"
+    prompt: str = "Explain Redis caching",
+    backend: str = "llm",
 ) -> GatewayRequest:
-    return GatewayRequest(prompt=prompt)
+    return GatewayRequest(
+        prompt=prompt,
+        backend=backend,
+    )
 
 
 def make_verdict(
@@ -60,6 +79,7 @@ def build_gateway(fake_llm_client: FakeLlmClient) -> GatewayOrchestrator:
         llm_guard_inspector=FakeLLMGuardInspector(),
         llm_client=fake_llm_client,
         system_prompt="You are a test assistant.",
+        simple_rag_client=FakeSimpleRagClient(),
     )
 
 
@@ -253,3 +273,32 @@ def test_chat_rejects_extra_system_prompt_field(client):
         and "extra" in err["type"]
         for err in errors
     )
+
+def test_process_chat_input_uses_simple_rag_backend():
+    llm_client = FakeLlmClient("This must not be returned")
+    simple_rag_client = FakeSimpleRagClient()
+
+    gateway = GatewayOrchestrator(
+        rule_inspector=RuleInspector(),
+        llm_guard_inspector=FakeLLMGuardInspector(),
+        llm_client=llm_client,
+        system_prompt="You are a test assistant.",
+        simple_rag_client=simple_rag_client,
+    )
+
+    request = make_request(
+        prompt="Classify this message",
+        backend="simple_rag",
+    )
+
+    response = gateway.process_chat_input(
+        request,
+        trace_id="test-trace",
+    )
+
+    assert llm_client.called is False
+    assert simple_rag_client.message == "Classify this message"
+    assert simple_rag_client.trace_id == "test-trace"
+    assert response.llm_output == "This is a safe RAG answer."
+    assert response.output_verdict is not None
+    assert response.output_verdict.action == PolicyAction.ALLOW

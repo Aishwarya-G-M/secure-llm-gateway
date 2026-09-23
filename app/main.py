@@ -17,6 +17,7 @@ from app.api.error_handlers import (
     gateway_execution_error_handler,
     gateway_inspection_error_handler,
 )
+from app.clients.providers.simple_rag_client import SimpleRagClient
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
@@ -58,12 +59,14 @@ SYSTEM_PROMPT_VERSION = "v1"
 
 def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
     resources = request.app.state.resources
+    simple_rag_client = SimpleRagClient()
 
     return GatewayOrchestrator(
         rule_inspector=resources.rule_inspector,
         llm_guard_inspector=resources.llm_guard_inspector,
         llm_client=get_llm_client(),
         system_prompt=resources.system_prompt,
+        simple_rag_client = simple_rag_client,
     )
 
 @app.get("/")

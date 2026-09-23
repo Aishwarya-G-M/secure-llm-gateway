@@ -1,7 +1,7 @@
 import httpx
 
 from app.config.downstream_settings import settings
-from app.schemas import RetrievalResult
+from app.schemas.retrieval_result import RetrievalResult
 
 
 class SimpleRagClient:
