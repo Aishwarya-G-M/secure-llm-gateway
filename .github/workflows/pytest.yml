@@ -1,25 +1,21 @@
-name: Run Tests
-run: python -m pytest tests/test_smoke.py::test_chat_allows_safe_request --vv -s
+name: Tests
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      TESTING: "True"
+
     steps:
-      - name: Check out code
+      - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -27,5 +23,5 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pytest
 
-      - name: Run tests
+      - name: Run Tests
         run: python -m pytest tests/test_smoke.py::test_chat_allows_safe_request -vv -s
