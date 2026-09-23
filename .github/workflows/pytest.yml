@@ -24,4 +24,4 @@ jobs:
           python -m pip install pytest
 
       - name: Run Tests
-        run: python -m pytest tests/test_smoke.py::test_chat_allows_safe_request -vv -s
+        run: python -m pytest -vv -s
