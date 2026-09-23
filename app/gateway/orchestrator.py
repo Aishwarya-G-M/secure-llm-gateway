@@ -231,6 +231,17 @@ class GatewayOrchestrator:
                     trace_id=trace_id,
                 )
                 answer = retrieval_result.answer
+            elif prompt_request.backend == "graphrag":
+                if self.graphrag_client is None:
+                    raise GatewayExecutionError(
+                        "GraphRAG client is not configured"
+                    )
+
+                retrieval_result = self.graphrag_client.query(
+                    prompt_request.prompt,
+                    trace_id=trace_id,
+                )
+                answer = retrieval_result.answer
             else:
                 llm_request = LLMRequest(
                     prompt=prompt_request.prompt,
