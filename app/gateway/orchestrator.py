@@ -221,14 +221,29 @@ class GatewayOrchestrator:
                     llm_output=None,
                 )
 
-            llm_request = LLMRequest(
-                prompt=prompt_request.prompt,
-                system_prompt=self.system_prompt,
-            )
+            # including provisioning for calling simple rag flow in addition to default llm flow only
+            if prompt_request.backend == "simple_rag":
+                if self.simple_rag_client is None:
+                    raise GatewayExecutionError(
+                        "Simple RAG client is not configured"
+                    )
 
-            llm_response = self.llm_client.generate(llm_request)
+                retrieval_result = self.simple_rag_client.query(
+                    prompt_request.prompt,
+                    trace_id=trace_id,
+                )
+                answer = retrieval_result.answer
+            else:
+                llm_request = LLMRequest(
+                    prompt=prompt_request.prompt,
+                    system_prompt=self.system_prompt,
+                )
+
+                llm_response = self.llm_client.generate(llm_request)
+                answer = llm_response.content
+
             output_security_verdict = self.process_llm_output(
-                llm_response.content,
+                answer,
                 prompt_request,
                 request_id=request_id,
                 trace_id=trace_id,
@@ -238,7 +253,7 @@ class GatewayOrchestrator:
                 return GatewayResponse(
                     input_verdict=input_security_verdict,
                     output_verdict=output_security_verdict,
-                    llm_output=llm_response.content,
+                    llm_output=answer,
                 )
 
             if output_security_verdict.action == PolicyAction.REDACT:
