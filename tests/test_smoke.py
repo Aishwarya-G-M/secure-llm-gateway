@@ -8,7 +8,15 @@ def test_chat_allows_safe_request(client):
         json={
             "prompt": "Explain how Redis caching works",
         },
+        headers={
+            "X-Request-ID": "smoke-test-request",
+            "X-Forwarded-For": "127.0.0.10",
+        },
     )
+
+    print("status_code:", response.status_code)
+    print("response_body:", response.text)
+    print("response_headers:", dict(response.headers))
 
     assert response.status_code == 200
     body = response.json()

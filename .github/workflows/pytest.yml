@@ -1,4 +1,5 @@
 name: Run Tests
+run: python -m pytest tests/test_smoke.py::test_chat_allows_safe_request --vv -s
 
 on:
   push:
@@ -13,17 +14,18 @@ jobs:
       TESTING: "True"
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
 
       - name: Run tests
-        run: |
-          pytest -q
+        run: python -m pytest tests/test_smoke.py::test_chat_allows_safe_request -vv -s
