@@ -1,6 +1,7 @@
 from typing import Any, Optional
 
 from app.clients.llm_protocol import LlmClientProtocol
+from app.config.downstream_settings import settings
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 from app.exceptions.llm import LLMError
 from app.exceptions.policy import PolicyError
@@ -71,13 +72,21 @@ class GatewayOrchestrator:
             llm_client: LlmClientProtocol,
             system_prompt: str,
             simple_rag_client:Optional[object] = None,
+            graphrag_client:Optional[object] = None,
     ) -> None:
         self.rule_inspector = rule_inspector
         self.llm_guard_inspector = llm_guard_inspector
         self.llm_client = llm_client
         self.system_prompt = system_prompt
         self.simple_rag_client = simple_rag_client
+        self.graphrag_client = graphrag_client
 
+    url = (
+        f"{settings.graphrag_base_url.rstrip('/')}"
+        f"/{settings.graphrag_query_path.lstrip('/')}"
+    )
+
+    logger.info("Calling GraphRAG URL: %s", url)
     def process_input(
             self,
             request: GatewayRequest,
@@ -227,6 +236,17 @@ class GatewayOrchestrator:
                     )
 
                 retrieval_result = self.simple_rag_client.query(
+                    prompt_request.prompt,
+                    trace_id=trace_id,
+                )
+                answer = retrieval_result.answer
+            elif prompt_request.backend == "graphrag":
+                if self.graphrag_client is None:
+                    raise GatewayExecutionError(
+                        "GraphRAG client is not configured"
+                    )
+
+                retrieval_result = self.graphrag_client.query(
                     prompt_request.prompt,
                     trace_id=trace_id,
                 )

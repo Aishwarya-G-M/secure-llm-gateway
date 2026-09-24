@@ -3,6 +3,7 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, APIRouter
 
+from app.clients.providers.graphrag_client import GraphRagClient
 from app.config.prompts import load_prompt_version
 from app.core.logging_setup import logger
 
@@ -60,6 +61,7 @@ SYSTEM_PROMPT_VERSION = "v1"
 def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
     resources = request.app.state.resources
     simple_rag_client = SimpleRagClient()
+    graphrag_client = GraphRagClient()
 
     return GatewayOrchestrator(
         rule_inspector=resources.rule_inspector,
@@ -67,6 +69,7 @@ def get_gateway_inspector(request: Request) -> GatewayOrchestrator:
         llm_client=get_llm_client(),
         system_prompt=resources.system_prompt,
         simple_rag_client = simple_rag_client,
+        graphrag_client=graphrag_client,
     )
 
 @app.get("/")
