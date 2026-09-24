@@ -2,7 +2,9 @@ import httpx
 
 from app.config.downstream_settings import settings
 from app.schemas.retrieval_result import RetrievalResult
+import logging
 
+logger = logging.getLogger(__name__)
 
 class GraphRagClient:
     def query(
@@ -15,6 +17,8 @@ class GraphRagClient:
             f"{settings.graphrag_base_url.rstrip('/')}"
             f"{settings.graphrag_query_path}"
         )
+
+        logger.info("Calling GraphRAG at %s", url)
 
         response = httpx.post(
             url,
