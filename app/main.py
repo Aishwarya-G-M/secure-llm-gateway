@@ -3,8 +3,6 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, APIRouter, HTTPException
 
-from app.clients.providers import simple_rag_client
-from app.clients.providers.graphrag_client import GraphRagClient
 from app.config.prompts import load_prompt_version
 from app.core.logging_setup import logger
 
@@ -14,13 +12,12 @@ from app.core.resources import create_app_resources
 from app.exceptions.gateway import GatewayInspectionError, GatewayExecutionError
 
 from app.gateway.orchestrator import GatewayOrchestrator
-from app.schemas.abstention import AbstentionRequest
+from app.schemas.abstention import AbstentionRequest, AbstentionResult
 from app.schemas.gateway import GatewayRequest, GatewayResponse
 from app.api.error_handlers import (
     gateway_execution_error_handler,
     gateway_inspection_error_handler,
 )
-from app.clients.providers.simple_rag_client import SimpleRagClient
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
@@ -133,7 +130,10 @@ async def chat(
 
     return response
 
-@app.post("/evaluate-abstention")
+@app.post(
+    "/evaluate-abstention",
+    response_model=AbstentionResult,
+)
 def evaluate_abstention(
     request: Request,
     abstention_request: AbstentionRequest,

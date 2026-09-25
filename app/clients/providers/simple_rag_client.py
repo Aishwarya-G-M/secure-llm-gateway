@@ -11,7 +11,7 @@ class SimpleRagClient:
     def query(self, message: str, *, trace_id: str | None = None) -> RetrievalResult:
         url = (
             f"{settings.simple_rag_base_url.rstrip('/')}"
-            f"{settings.simple_rag_query_path}"
+            f"{settings.simple_rag_evaluation_path}"
         )
 
         try:
@@ -24,9 +24,8 @@ class SimpleRagClient:
             response.raise_for_status()
         except httpx.HTTPError:
             logger.exception(
-                "Simple RAG request failed: url=%s trace_id=%s",
+                "Simple RAG abstention request failed: url=%s",
                 url,
-                trace_id,
             )
             raise
 
@@ -47,7 +46,7 @@ class SimpleRagClient:
     ) -> AbstentionResult:
         url = (
             f"{settings.simple_rag_base_url.rstrip('/')}"
-            f"{settings.simple_rag_query_path}"
+            f"{settings.simple_rag_evaluation_path}"
         )
 
         try:
