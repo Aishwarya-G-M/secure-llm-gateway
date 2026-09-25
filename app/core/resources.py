@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from app.clients.providers.graphrag_client import GraphRagClient
+from app.clients.providers.simple_rag_client import SimpleRagClient
 from app.config.prompts import load_system_prompt, load_prompt_version
 from app.core.metrics import gateway_metrics, GatewayMetrics
 from app.schemas.security_verdict import PolicyAction
@@ -14,7 +16,8 @@ class AppResources:
     system_prompt: str
     system_prompt_version: str
     metrics: GatewayMetrics
-
+    simple_rag_client: SimpleRagClient
+    graphrag_client: GraphRagClient
 
 def create_app_resources() -> AppResources:
     system_prompt = load_system_prompt(prompt_name="chat")
@@ -41,4 +44,6 @@ def create_app_resources() -> AppResources:
         system_prompt=system_prompt,
         system_prompt_version=system_prompt_version,
         metrics=metrics,
+        simple_rag_client=SimpleRagClient(),
+        graphrag_client=GraphRagClient(),
     )
