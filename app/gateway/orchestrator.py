@@ -86,7 +86,6 @@ class GatewayOrchestrator:
         f"/{settings.graphrag_query_path.lstrip('/')}"
     )
 
-    logger.info("Calling GraphRAG URL: %s", url)
     def process_input(
             self,
             request: GatewayRequest,
@@ -229,7 +228,7 @@ class GatewayOrchestrator:
                 )
 
             # including provisioning for calling simple rag flow in addition to default llm flow only
-            if prompt_request.backend == "simple_rag":
+            if prompt_request.backend == "vector_rag":
                 if self.simple_rag_client is None:
                     raise GatewayExecutionError(
                         "Simple RAG client is not configured"

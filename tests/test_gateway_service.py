@@ -288,7 +288,7 @@ def test_process_chat_input_uses_simple_rag_backend():
 
     request = make_request(
         prompt="Classify this message",
-        backend="simple_rag",
+        backend="vector_rag",
     )
 
     response = gateway.process_chat_input(
