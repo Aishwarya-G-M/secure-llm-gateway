@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     graphrag_base_url: str = "http://127.0.0.1:8680"
     graphrag_query_path: str = "/graphrag-query"
+    graphrag_evaluation_path: str = "/graphrag/evaluate"
 
     downstream_timeout_seconds: float = 20.0
     downstream_max_retries: int = 1
