@@ -154,7 +154,10 @@ def evaluate_abstention(
 
     raise HTTPException(
         status_code=400,
-        detail=f"Unsupported backend: {abstention_request.backend}",
+        detail=(
+            f"Unsupported backend: "
+            f"{abstention_request.backend}"
+        ),
     )
 
 app.include_router(ops_router)
