@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     graphrag_query_path: str = "/graphrag-query"
     graphrag_evaluation_path: str = "/graphrag/evaluate"
 
-    downstream_timeout_seconds: float = 20.0
+    downstream_timeout_seconds: float = 180.0
     downstream_max_retries: int = 1
 
     model_config = SettingsConfigDict(
